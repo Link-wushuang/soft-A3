@@ -18,13 +18,13 @@ Official task page: <https://www.cnsoftbei.com/content-3-1286-1.html>
 |---|---|---|---|---|
 | 1 | 对话式学习画像自主构建 (≥6维) | `ProfileAgent` extracts 8 dimensions with confidence, evidence, and update history | P0 | Profile page, DB record, tests |
 | 2 | 多智能体协同资源生成 | 14 agents with visible orchestration trace showing retrieval -> planning -> generation -> verification -> safety | P0 | Agent trace panel, architecture doc |
-| 3 | 至少5种个性化资源 | 6 types: lecture, mind map, exercises, lab/case, extended reading, video storyboard | P0 | Resource tabs, persisted records |
+| 3 | 至少5种个性化资源 | 6 types: lecture, mind map, exercises, case (实操案例), extended reading, video storyboard | P0 | Resource tabs, persisted records |
 | 4 | 个性化学习路径规划和推送 | `PathPlannerAgent` builds dynamic path; `ReflectionAgent` triggers remediation after mistakes | P0 | Learning path page, feedback loop |
-| 5 | 智能辅导 (加分项) | Context-aware `TutorAgent` with source references and streaming response | P1 | Tutoring panel |
+| 5 | 智能辅导 (加分项) | Context-aware `TutorAgent` with source references and JSON response | P1 | Tutoring panel |
 | 6 | 学习效果评估 (加分项) | `EvaluationAgent` + mistake tags + mastery trend + ECharts analytics | P0 | Exercise page, analytics chart |
-| 7 | 完整高校课程知识库 | "操作系统" course: 8 chapters, 40+ knowledge points, 60+ exercises, 8+ labs | P0 | `data/os_course_seed.json` |
+| 7 | 完整高校课程知识库 | "操作系统" course: 8 chapters, 40+ knowledge points, 60+ exercises, 8+ case_materials | P0 | `data/os_course_seed.json` |
 | 8 | 防幻觉与内容安全 | `VerifierAgent` + `ContentGuardAgent` + source-bound prompts + confidence labels + safety audit log | P0 | Safety logs, verifier output |
-| 9 | 界面美观: 流式输出 | SSE endpoints for dialogue and resource generation; frontend `EventSource` rendering | P0 | SSE API, streaming UI |
+| 9 | 界面美观: 流式输出 | SSE endpoint for resource generation with real-time agent trace; dialogue uses standard JSON response | P0 | SSE API, streaming UI |
 | 10 | 界面美观: Markdown渲染 | `markdown-it` with code highlighting and math support | P0 | MarkdownRenderer component |
 | 11 | 界面美观: 卡片化展示 | Element Plus Card components for resources, exercises, profile dimensions | P0 | ResourceCard, ProfileCard |
 | 12 | 开源协议标注 | `docs/third-party-licenses.md` | P0 | License file |
@@ -48,7 +48,7 @@ This section directly addresses the 35% "创新价值与实用性" scoring weigh
 
 4. **Closed-Loop Remediation**: The system detects weak points from exercise results, updates the profile, adjusts the learning path, and proactively pushes targeted remediation resources — a complete feedback loop, not just one-shot generation.
 
-5. **Six Multimodal Resource Types**: Goes beyond text-only generation to include Mermaid mind maps (visual), code lab cases (interactive), video storyboards with scene descriptions (multimodal), and curated extended reading (depth).
+5. **Six Multimodal Resource Types**: Goes beyond text-only generation to include Mermaid mind maps (visual), code-based practice cases (interactive), video storyboards with scene descriptions (multimodal), and curated extended reading (depth).
 
 ### 2.2 Differentiators From Existing Platforms
 
@@ -77,14 +77,14 @@ All P0 features must work in mock mode without network access.
   1. Personalized lecture document (Markdown)
   2. Knowledge mind map (Mermaid)
   3. Layered exercise set (multiple difficulty, multiple types)
-  4. Lab/case material with code
+  4. Practice case material with code
   5. Extended reading recommendations with summaries
   6. Video storyboard with scene descriptions and PPT outline
 - Exercise submission, scoring, mistake tagging, feedback
 - Profile update based on learning behavior
 - Remediation resource recommendation
 - Content verification and safety filtering with audit log
-- SSE streaming for dialogue and resource generation
+- SSE streaming for resource generation with real-time agent trace
 - Card-based UI with agent progress tracking
 - README, architecture doc, API doc, safety doc, AI tool usage doc
 
@@ -155,7 +155,7 @@ Initial course: 操作系统 (Operating Systems).
 | Chapters | 8 |
 | Knowledge points | 40 |
 | Exercises | 60 |
-| Lab/case materials | 8 |
+| KPs with case_materials | 8 |
 | Common mistakes | 20 |
 | References per chapter | 1 |
 
@@ -184,13 +184,7 @@ Initial course: 操作系统 (Operating Systems).
   "difficulty": "medium",
   "tags": ["file-system", "indexed-allocation", "disk-io"],
   "sources": ["操作系统概念(第九版) 第11章"],
-  "labs": [
-    {
-      "title": "模拟索引分配文件读取",
-      "description": "编写程序模拟单级索引和多级索引的磁盘I/O过程",
-      "code_template": "def read_block(file_index_block, logical_block_num): ..."
-    }
-  ]
+  "case_materials": "编写程序模拟单级索引和多级索引的磁盘I/O过程，给定索引块和逻辑块号，计算物理块号并统计磁盘I/O次数。"
 }
 ```
 
@@ -208,7 +202,7 @@ Initial course: 操作系统 (Operating Systems).
 | `LectureAgent` | Generate personalized Markdown lecture | P0 |
 | `MindMapAgent` | Generate Mermaid mind map code | P0 |
 | `ExerciseAgent` | Generate layered exercise set (JSON) | P0 |
-| `CaseAgent` | Generate lab/case/code material | P0 |
+| `CaseAgent` | Generate practice case/code material | P0 |
 | `ExtendedReadingAgent` | Generate curated reading list with summaries | P0 |
 | `VideoStoryboardAgent` | Generate storyboard scenes + PPT outline | P0 |
 | `EvaluationAgent` | Score answers, identify mistake patterns | P0 |
@@ -363,7 +357,7 @@ Exercise 1--N AnswerRecord
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/profile/dialogue` | Extract/update profile from natural language (SSE stream) |
+| POST | `/api/profile/dialogue` | Extract/update profile from natural language (JSON response) |
 | GET | `/api/profile/{course_id}` | Get current profile |
 | GET | `/api/profile/{course_id}/logs` | Get profile update history |
 
@@ -381,7 +375,7 @@ Exercise 1--N AnswerRecord
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/learning-path/generate` | Generate path (SSE stream) |
+| POST | `/api/learning-path/generate` | Generate path (JSON response) |
 | GET | `/api/learning-path/current?course_id=1` | Get current path |
 | PUT | `/api/learning-path/nodes/{id}/status` | Update node status |
 
@@ -402,7 +396,7 @@ Exercise 1--N AnswerRecord
 |---|---|---|
 | POST | `/api/exercises/generate` | Generate exercises for a knowledge point |
 | GET | `/api/exercises?knowledge_point_id=1` | List exercises |
-| POST | `/api/exercises/{id}/submit` | Submit answer, returns score + feedback (SSE) |
+| POST | `/api/exercises/{id}/submit` | Submit answer, returns score + feedback (JSON response) |
 | GET | `/api/exercises/answer-records?course_id=1` | Answer history |
 | GET | `/api/analytics/summary?course_id=1` | Student learning summary |
 
@@ -410,11 +404,11 @@ Exercise 1--N AnswerRecord
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/api/tutor/ask` | Ask follow-up question (SSE stream) |
+| POST | `/api/tutor/ask` | Ask follow-up question (JSON response) |
 
 ### 9.8 SSE Event Format
 
-All SSE endpoints use this event format:
+The resource generation SSE endpoint uses this event format:
 
 ```
 event: agent_status
@@ -443,7 +437,7 @@ data: {"task_id": 7, "total_resources": 6, "warnings_count": 1}
 |---|---|---|
 | Login | `/login` | Login form + "演示账号一键登录" button |
 | Dashboard | `/student/dashboard` | ProfileCard (8 dims), weak points tags, current path mini-view, recent resources |
-| Profile Chat | `/student/profile-chat` | Chat input, streaming response, ProfileCard live update |
+| Profile Chat | `/student/profile-chat` | Chat input, JSON response, ProfileCard update |
 | Learning Path | `/student/learning-path` | PathTimeline component, node reasons, status badges, generate button |
 | Resource Generation | `/student/resources/:knowledgePointId` | AgentTracePanel, 6 resource tab cards, SafetyBadge, loading skeletons |
 | Exercise | `/student/exercise/:knowledgePointId` | ExerciseCard list, submit button, score card, mistake tags, profile change alert |
@@ -459,7 +453,7 @@ data: {"task_id": 7, "total_resources": 6, "warnings_count": 1}
 ### 10.3 UI Design Rules
 
 1. **Card-based layout**: Every resource type renders as an Element Plus `el-card` with header, body, and footer (confidence + warnings)
-2. **Streaming text**: Profile dialogue and tutoring use typing animation with `EventSource`
+2. **Streaming progress**: Resource generation uses SSE `EventSource` with real-time agent trace; dialogue and tutoring return JSON (single-turn latency is acceptable)
 3. **Agent trace panel**: Vertical stepper showing agent name, status icon, duration
 4. **Loading states**: Skeleton placeholders during generation, never blank screens
 5. **Safety badges**: Green (passed), Yellow (warning), Red (blocked) on each resource card
@@ -936,6 +930,20 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def override_engine(url: str):
+    """Replace engine and SessionLocal globally.
+    Called by test conftest.py so that ALL code paths — including
+    background threads and SSE handlers that import SessionLocal
+    directly — use the test database."""
+    import app.db.session as _mod
+    kwargs = {}
+    if url.startswith("sqlite"):
+        from sqlalchemy.pool import StaticPool
+        kwargs = {"connect_args": {"check_same_thread": False}, "poolclass": StaticPool}
+    _mod.engine = create_engine(url, **kwargs)
+    _mod.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_mod.engine)
 ```
 
 - [ ] **Step 2: Create User model**
@@ -991,6 +999,7 @@ class KnowledgePoint(Base):
     difficulty = Column(String(16), default="medium")
     tags = Column(JSON, default=list)
     sources = Column(JSON, default=list)
+    case_materials = Column(Text, default="")
     sort_order = Column(Integer, default=0)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -1237,26 +1246,57 @@ __all__ = [
 `backend/tests/conftest.py`:
 ```python
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from fastapi.testclient import TestClient
+from app.db.session import override_engine, get_db
 from app.db.base import Base
+from app.main import app
 from app.models import *  # noqa: F401,F403
 
-# Tests use in-memory SQLite for speed and zero setup.
-# Production uses MySQL. All models use Integer PKs so both work.
+# Rebind engine + SessionLocal globally BEFORE any test runs.
+# This affects all code that imports SessionLocal — including
+# background threads (resource_service) and SSE handlers.
 TEST_DB_URL = "sqlite:///:memory:"
+override_engine(TEST_DB_URL)
+
+# Also override FastAPI's get_db dependency for completeness.
+import app.db.session as _sess
+
+def _override_get_db():
+    db = _sess.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = _override_get_db
 
 
 @pytest.fixture
 def db_session():
-    engine = create_engine(TEST_DB_URL)
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+    """Bare session for unit tests (no seed data)."""
+    Base.metadata.create_all(bind=_sess.engine)
+    session = _sess.SessionLocal()
     yield session
     session.close()
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
+    Base.metadata.drop_all(bind=_sess.engine)
+
+
+@pytest.fixture
+def test_db():
+    """Create tables + seed data, yield session, tear down."""
+    from app.db.init_data import init_demo_data
+    Base.metadata.create_all(bind=_sess.engine)
+    session = _sess.SessionLocal()
+    init_demo_data(session)
+    yield session
+    session.close()
+    Base.metadata.drop_all(bind=_sess.engine)
+
+
+@pytest.fixture
+def client(test_db):
+    """TestClient with seeded DB. All API tests should use this."""
+    return TestClient(app)
 ```
 
 `backend/tests/test_models.py`:
@@ -1394,9 +1434,9 @@ git add backend/app/db/ backend/app/models/ backend/tests/ && git commit -m "fea
 }
 ```
 
-The full file must have 8 chapters with a total of ≥40 knowledge points, ≥60 exercises, and ≥8 lab entries. Each chapter follows the same schema as shown above. Build realistic content per chapter:
+The full file must have 8 chapters with a total of ≥40 knowledge points and ≥60 exercises. Each chapter follows the same schema as shown above. Knowledge points that involve hands-on practice include a `case_materials` field (string) describing the实操场景 — this is used by `CaseAgent` to generate practice cases.
 
-| Chapter | Knowledge Points | Exercises | Labs |
+| Chapter | Knowledge Points | Exercises | KPs with case_materials |
 |---|---|---|---|
 | 操作系统概述 | 4 | 6 | 0 |
 | 进程与线程 | 6 | 10 | 2 |
@@ -1407,6 +1447,16 @@ The full file must have 8 chapters with a total of ≥40 knowledge points, ≥60
 | 文件系统 | 5 | 8 | 1 |
 | 设备管理与磁盘调度 | 4 | 7 | 1 |
 | **Total** | **40** | **62** | **8** |
+
+Example knowledge point with `case_materials`:
+```json
+{
+  "title": "生产者-消费者问题",
+  "summary": "经典进程同步问题...",
+  "case_materials": "使用Python threading和Semaphore实现有界缓冲区生产者-消费者模型，缓冲区大小为5，生产者3个，消费者2个。观察信号量阻塞和唤醒行为。",
+  ...
+}
+```
 
 - [ ] **Step 2: Create init_data.py**
 
@@ -1469,6 +1519,7 @@ def init_demo_data(db: Session) -> None:
                 difficulty=kp_data.get("difficulty", "medium"),
                 tags=kp_data.get("tags", []),
                 sources=chapter.get("sources", []),
+                case_materials=kp_data.get("case_materials", ""),
                 sort_order=sort_order,
             )
             db.add(kp)
@@ -1543,6 +1594,14 @@ def test_seed_creates_course_with_enough_data(db_session):
 
     src_count = db_session.query(KnowledgeSource).count()
     assert src_count >= 8, f"Need ≥8 sources (one per chapter), got {src_count}"
+
+
+def test_seed_has_case_materials(db_session):
+    init_demo_data(db_session)
+    kps_with_cases = db_session.query(KnowledgePoint).filter(
+        KnowledgePoint.case_materials != ""
+    ).count()
+    assert kps_with_cases >= 8, f"Need ≥8 KPs with case_materials, got {kps_with_cases}"
 
 
 def test_seed_is_idempotent(db_session):
@@ -1893,17 +1952,7 @@ git add backend/app/services/ backend/tests/test_llm_client.py && git commit -m 
 
 `backend/tests/test_auth.py`:
 ```python
-from fastapi.testclient import TestClient
-from app.main import app
-from app.db.base import Base
-from app.db.session import engine
-from app.models import *  # noqa: F401,F403
-
-Base.metadata.create_all(bind=engine)
-client = TestClient(app)
-
-
-def test_register_and_login():
+def test_register_and_login(client):
     resp = client.post("/api/auth/register", json={
         "username": "test_user",
         "password": "test123",
@@ -1925,7 +1974,7 @@ def test_register_and_login():
     assert resp.json()["username"] == "test_user"
 
 
-def test_login_wrong_password():
+def test_login_wrong_password(client):
     client.post("/api/auth/register", json={
         "username": "test_user2", "password": "correct", "role": "student",
     })
@@ -2089,16 +2138,24 @@ api_router.include_router(auth_router)
 
 Update `backend/app/main.py` to include the router:
 ```python
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.db.base import Base
-from app.db.session import engine
 from app.models import *  # noqa: F401,F403
 
-Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="EduPath Agent", version="0.1.0")
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    # Create tables on startup — uses whatever engine is active
+    # (production MySQL or test SQLite via override_engine).
+    import app.db.session as sess
+    Base.metadata.create_all(bind=sess.engine)
+    yield
+
+
+app = FastAPI(title="EduPath Agent", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -2936,7 +2993,7 @@ class CaseAgent(BaseAgent):
 
     def __init__(self, llm: LLMClient):
         super().__init__(llm)
-        self.system_prompt = PROMPT_PATH.read_text(encoding="utf-8") if PROMPT_PATH.exists() else "Generate a lab case."
+        self.system_prompt = PROMPT_PATH.read_text(encoding="utf-8") if PROMPT_PATH.exists() else "Generate a practice case."
 
     def _execute(self, profile: dict = None, knowledge_context: dict = None, **kwargs) -> Any:
         user_content = (
@@ -3437,31 +3494,29 @@ git add backend/app/agents/ backend/app/prompts/ backend/app/services/agent_task
 
 `backend/tests/test_resource_generation.py`:
 ```python
-from fastapi.testclient import TestClient
-from app.main import app
-from app.db.base import Base
-from app.db.session import engine
-from app.db.init_data import init_demo_data
-from app.db.session import SessionLocal
-from app.models import *  # noqa: F401,F403
-
-Base.metadata.create_all(bind=engine)
-db = SessionLocal()
-init_demo_data(db)
-db.close()
-
-client = TestClient(app)
+import time
 
 
-def _get_token():
+def _get_token(client):
     resp = client.post("/api/auth/login", json={
         "username": "demo_student", "password": "demo123",
     })
     return resp.json()["access_token"]
 
 
-def test_generate_resources_returns_task_id():
-    token = _get_token()
+def _wait_for_task(client, task_id, token, timeout=30):
+    """Poll task status until completed or timeout."""
+    headers = {"Authorization": f"Bearer {token}"}
+    for _ in range(timeout * 2):
+        resp = client.get(f"/api/agent-tasks/{task_id}", headers=headers)
+        if resp.status_code == 200 and resp.json()["status"] in ("completed", "failed"):
+            return resp.json()
+        time.sleep(0.5)
+    raise TimeoutError(f"Task {task_id} did not complete within {timeout}s")
+
+
+def test_generate_resources_returns_task_id(client):
+    token = _get_token(client)
     resp = client.post(
         "/api/resources/generate",
         json={"knowledge_point_id": 1},
@@ -3472,13 +3527,17 @@ def test_generate_resources_returns_task_id():
     assert "task_id" in data
 
 
-def test_get_resources_by_knowledge_point():
-    token = _get_token()
-    client.post(
+def test_get_resources_by_knowledge_point(client):
+    token = _get_token(client)
+    resp = client.post(
         "/api/resources/generate",
         json={"knowledge_point_id": 1},
         headers={"Authorization": f"Bearer {token}"},
     )
+    task_id = resp.json()["task_id"]
+    task = _wait_for_task(client, task_id, token)
+    assert task["status"] == "completed", f"Task failed: {task.get('error_message')}"
+
     resp = client.get(
         "/api/resources?knowledge_point_id=1",
         headers={"Authorization": f"Bearer {token}"},
@@ -3504,7 +3563,7 @@ from app.models.safety import SafetyAuditLog
 from app.services.agent_task_service import create_task, update_task_progress, save_single_trace
 from app.services.llm_client import get_llm_client
 from app.core.config import settings
-from app.db.session import SessionLocal
+import app.db.session as db_module
 
 
 def start_resource_generation(db: Session, user_id: int, knowledge_point_id: int) -> int:
@@ -3514,7 +3573,7 @@ def start_resource_generation(db: Session, user_id: int, knowledge_point_id: int
     if not kp:
         raise ValueError(f"Knowledge point {knowledge_point_id} not found")
 
-    task = create_task(db, user_id, "resource_generation", total_steps=9)
+    task = create_task(db, user_id, "resource_generation", total_steps=8)
 
     thread = threading.Thread(
         target=_run_generation,
@@ -3528,7 +3587,7 @@ def start_resource_generation(db: Session, user_id: int, knowledge_point_id: int
 def _run_generation(task_id: int, user_id: int, knowledge_point_id: int) -> None:
     """Runs in background thread. Opens its own DB session and writes
     trace entries incrementally so the SSE endpoint can stream them."""
-    db = SessionLocal()
+    db = db_module.SessionLocal()
     try:
         llm = get_llm_client(settings.llm_provider)
         orchestrator = Orchestrator(llm=llm)
@@ -3556,12 +3615,13 @@ def _run_generation(task_id: int, user_id: int, knowledge_point_id: int) -> None
 
         update_task_progress(db, task_id, 0, "running")
 
-        step_counter = [0]
+        completed_agents = set()
 
         def on_trace(trace_item: dict):
             save_single_trace(db, task_id, trace_item)
-            step_counter[0] += 1
-            update_task_progress(db, task_id, step_counter[0], "running")
+            if trace_item.get("status") == "success":
+                completed_agents.add(trace_item["agent_name"])
+                update_task_progress(db, task_id, len(completed_agents), "running")
 
         result = orchestrator.generate_resources(
             profile=profile_dict,
@@ -3605,7 +3665,7 @@ def _run_generation(task_id: int, user_id: int, knowledge_point_id: int) -> None
                 details=f"{res_data['resource_type']} generation complete",
             ))
 
-        update_task_progress(db, task_id, step_counter[0], "completed")
+        update_task_progress(db, task_id, len(completed_agents), "completed")
         db.commit()
 
     except Exception as e:
@@ -3650,7 +3710,8 @@ import time
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from app.db.session import get_db, SessionLocal
+from app.db.session import get_db
+import app.db.session as db_module
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.models.resource import GeneratedResource
@@ -3669,23 +3730,42 @@ def generate(req: GenerateResourceRequest, user: User = Depends(get_current_user
 
 
 @router.get("/generate/{task_id}/stream")
-def stream_generation(task_id: int):
-    """Real-time SSE endpoint. Polls the DB for new trace entries written by
-    the background generation thread. Sends events as agents complete."""
+def stream_generation(task_id: int, token: str | None = None):
+    """Real-time SSE endpoint with query-string token auth.
+    EventSource doesn't support Authorization headers, so the frontend
+    passes the JWT as ?token=... query param."""
+    from jose import jwt, JWTError
+    from app.core.config import settings
     from app.models.agent_task import AgentTask, AgentTrace
 
+    if not token:
+        return StreamingResponse(
+            iter([f"event: error\ndata: {json.dumps({'message': 'Missing token'})}\n\n"]),
+            media_type="text/event-stream",
+        )
+    try:
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        user_id = int(payload["sub"])
+    except (JWTError, KeyError, ValueError):
+        return StreamingResponse(
+            iter([f"event: error\ndata: {json.dumps({'message': 'Invalid token'})}\n\n"]),
+            media_type="text/event-stream",
+        )
+
     def event_stream():
-        db = SessionLocal()
+        db = db_module.SessionLocal()
         try:
+            task = db.query(AgentTask).filter_by(id=task_id).first()
+            if not task or task.user_id != user_id:
+                yield f"event: error\ndata: {json.dumps({'message': 'Task not found'})}\n\n"
+                return
+
             seen_traces = set()
             seen_resources = set()
 
             for _ in range(120):
                 db.expire_all()
                 task = db.query(AgentTask).filter_by(id=task_id).first()
-                if not task:
-                    yield f"event: error\ndata: {json.dumps({'message': 'Task not found'})}\n\n"
-                    return
 
                 traces = db.query(AgentTrace).filter_by(task_id=task_id).all()
                 for trace in traces:
@@ -4956,7 +5036,8 @@ async function startGeneration() {
 }
 
 function pollSSE(tid: number) {
-  const source = new EventSource(`/api/resources/generate/${tid}/stream`)
+  const token = localStorage.getItem('token') || ''
+  const source = new EventSource(`/api/resources/generate/${tid}/stream?token=${encodeURIComponent(token)}`)
   source.addEventListener('agent_status', (e: MessageEvent) => {
     const data = JSON.parse(e.data)
     const idx = traces.value.findIndex(t => t.agent_name === data.agent_name)
@@ -5123,22 +5204,10 @@ git add frontend/src/views/teacher/ frontend/src/router/ && git commit -m "feat:
 
 `backend/tests/test_demo_flow.py`:
 ```python
-from fastapi.testclient import TestClient
-from app.main import app
-from app.db.base import Base
-from app.db.session import engine, SessionLocal
-from app.db.init_data import init_demo_data
-from app.models import *  # noqa: F401,F403
-
-Base.metadata.create_all(bind=engine)
-db = SessionLocal()
-init_demo_data(db)
-db.close()
-
-client = TestClient(app)
+import time
 
 
-def _login():
+def _login(client):
     resp = client.post("/api/auth/login", json={
         "username": "demo_student", "password": "demo123",
     })
@@ -5146,8 +5215,17 @@ def _login():
     return resp.json()["access_token"]
 
 
-def test_full_student_loop():
-    token = _login()
+def _wait_for_task(client, task_id, headers, timeout=30):
+    for _ in range(timeout * 2):
+        resp = client.get(f"/api/agent-tasks/{task_id}", headers=headers)
+        if resp.status_code == 200 and resp.json()["status"] in ("completed", "failed"):
+            return resp.json()
+        time.sleep(0.5)
+    raise TimeoutError(f"Task {task_id} did not complete within {timeout}s")
+
+
+def test_full_student_loop(client):
+    token = _login(client)
     headers = {"Authorization": f"Bearer {token}"}
 
     # 1. Profile dialogue
@@ -5171,7 +5249,7 @@ def test_full_student_loop():
     path = resp.json()
     assert len(path["nodes"]) >= 3
 
-    # 4. Generate resources
+    # 4. Generate resources (returns immediately, runs in background)
     kp_id = path["nodes"][0]["knowledge_point_id"]
     resp = client.post("/api/resources/generate", json={
         "knowledge_point_id": kp_id,
@@ -5179,7 +5257,10 @@ def test_full_student_loop():
     assert resp.status_code == 200
     task_id = resp.json()["task_id"]
 
-    # 5. Check resources were created
+    # 5. Wait for generation to complete before checking results
+    task = _wait_for_task(client, task_id, headers)
+    assert task["status"] == "completed", f"Task failed: {task.get('error_message')}"
+
     resp = client.get(f"/api/resources?knowledge_point_id={kp_id}", headers=headers)
     assert resp.status_code == 200
     resources = resp.json()
@@ -5211,9 +5292,8 @@ def test_full_student_loop():
 
 
 def test_mock_mode_needs_no_api_key():
-    """The full flow above ran in mock mode without any Spark API key."""
-    import os
-    assert os.environ.get("SPARK_API_KEY", "") == "" or True
+    from app.core.config import settings
+    assert settings.llm_provider == "mock", "Tests must run in mock mode"
 ```
 
 - [ ] **Step 2: Run full test suite**
@@ -5257,18 +5337,47 @@ git add backend/tests/test_demo_flow.py && git commit -m "feat: end-to-end test 
 ### 环境要求
 - Python 3.11+
 - Node.js 18+
+- MySQL 8.0+（或 Docker）
 
-### 后端
+### 1. 启动 MySQL
+
+**方式一：Docker（推荐，无需本地安装）**
+
+```bash
+docker run -d --name edupath-mysql -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=root \
+  -e MYSQL_DATABASE=edupath \
+  -e MYSQL_CHARSET=utf8mb4 \
+  mysql:8.0 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+```
+
+**方式二：本地 MySQL**
+
+```sql
+-- 连接 MySQL 后执行:
+CREATE DATABASE IF NOT EXISTS edupath
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+确认可连接后，编辑 `.env` 中的 `DATABASE_URL`（默认 `root:root@localhost:3306/edupath`）。如果你的密码或端口不同，需修改。
+
+### 2. 后端
+
+```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env  # 默认使用mock模式，无需API key
+cp .env.example .env  # 修改 DATABASE_URL（如需）；默认 mock 模式，无需 API key
 python ../scripts/init_demo_data.py
 uvicorn app.main:app --reload --port 8000
+```
 
-### 前端
+### 3. 前端
+
+```bash
 cd frontend
 npm install
 npm run dev
+```
 
 ### 演示账号
 - 学生: demo_student / demo123
