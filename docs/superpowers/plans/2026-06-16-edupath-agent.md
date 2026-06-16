@@ -10,6 +10,45 @@
 
 ---
 
+## 0. Execution Notes From Task 0-5 Run
+
+These notes were added after implementing Task 0 through Task 5 on branch `codex/task0-task5-edupath` (commit `4632948`). They document practical issues encountered during execution and should guide the continuation from Task 6 onward.
+
+### 0.1 Environment And Secrets
+
+- **Do not commit real API keys.** During the first implementation pass, DeepSeek was used as the temporary development provider with model `deepseek-v4-pro`. The real key was written only to local `backend/.env`, which is ignored by `.gitignore`. Keep committed files limited to `backend/.env.example` with empty key fields.
+- **Tests must not call real LLM providers.** `backend/tests/conftest.py` forces `LLM_PROVIDER=mock` before importing the app. Keep this pattern for future LLM-related tests so pytest remains deterministic and offline-safe.
+- **DeepSeek is a temporary provider, not the final competition provider.** The code now supports `mock`, `deepseek`, and `spark`; later replacement should switch runtime `.env` to Spark and update documentation, while keeping tests on mock.
+- **npm does not need a conda environment.** Node/npm is independent from Python/conda. A conda environment is optional for backend Python isolation, but it is not required for the frontend.
+- **Dependency installation may need a mirror.** `pip install -r backend/requirements.txt` initially hit slow downloads/SSL interruptions and a temporary wheel lock. `python -m pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt` resolved it.
+
+### 0.2 Git And Local Workspace Notes
+
+- Git may report `dubious ownership` in this environment. Use `git -c safe.directory=D:/soft-A3 ...` or `git -C D:/soft-A3 -c safe.directory=D:/soft-A3 ...` for status, branch, diff, and commit commands.
+- Work was done on `codex/task0-task5-edupath` instead of directly on `main`.
+- After frontend build/install, `frontend/node_modules/`, `frontend/dist/`, backend caches, and `backend/.env` should remain ignored. Always check `git status --short --ignored` before committing.
+
+### 0.3 Implementation Deviations And Fixes
+
+- **Task 0:** The frontend scaffold needs `frontend/src/router/index.ts` and at least one view because `frontend/src/main.ts` imports the router. These files were added even though the short task list did not explicitly include them.
+- **Task 1:** `db_session.bind.dialect.get_table_names(db_session.bind)` is not compatible with SQLAlchemy 2 when passed an `Engine`. Use `sqlalchemy.inspect(db_session.bind).get_table_names()` in tests.
+- **Task 2:** The first seed implementation produced only 51 exercises. The final logic creates one exercise for every knowledge point and a second exercise for the first 22 knowledge points, giving 62 total exercises.
+- **Task 3:** The plan originally says Mock + Spark. Actual execution added a `DeepSeekLLM` provider as the temporary development backend, while preserving Spark for final replacement.
+- **Task 4:** Passlib with the installed bcrypt version logs a trapped bcrypt version warning during hashing, but authentication tests pass. No production behavior issue was observed.
+- **Task 5:** The profile router is mounted as `/profile` under the global `/api` prefix, so final paths are `/api/profile/...`. The dialogue endpoint returns the profile object directly, not wrapped under `{"profile": ...}`, to match the response model and simplify frontend consumption.
+
+### 0.4 Verification Snapshot
+
+Fresh verification after Task 0-5 implementation:
+
+- `cd backend && python -m pytest -v`: 19 passed
+- `cd frontend && npm audit --audit-level=high`: 0 vulnerabilities
+- `cd frontend && npm run build`: passed with only third-party annotation/chunk-size warnings
+- Backend health check via `TestClient`: `200 {"status": "ok"}`
+- `git grep` on `HEAD` confirmed the real DeepSeek key was not committed
+
+---
+
 ## 1. Competition Requirement Map
 
 Official task page: <https://www.cnsoftbei.com/content-3-1286-1.html>
