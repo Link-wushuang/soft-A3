@@ -1,0 +1,97 @@
+{
+  "course": {
+    "name": "操作系统",
+    "description": "面向软件杯演示的操作系统课程知识库，覆盖进程、调度、内存、文件系统与设备管理。"
+  },
+  "chapters": [
+    {
+      "name": "操作系统概述",
+      "source": "操作系统概念 第1章",
+      "knowledge_points": [
+        {"title": "操作系统目标与功能", "summary": "操作系统负责资源管理、程序控制和用户接口。", "key_content": "资源抽象、资源分配、并发控制、系统调用。", "difficulty": "easy", "tags": ["overview", "goals"], "case_materials": "观察一次程序运行，从进程、内存、文件和设备四类资源记录操作系统提供的服务。"},
+        {"title": "内核态与用户态", "summary": "CPU 通过特权级隔离普通程序和内核代码。", "key_content": "特权指令、陷入、中断、系统调用入口。", "difficulty": "easy", "tags": ["kernel", "system-call"]},
+        {"title": "系统调用", "summary": "用户程序通过系统调用请求内核服务。", "key_content": "read/write/fork/exec/open 的调用路径与参数传递。", "difficulty": "medium", "tags": ["system-call", "api"]},
+        {"title": "中断与异常", "summary": "中断和异常让 CPU 从当前执行流转入处理程序。", "key_content": "外部中断、同步异常、现场保护、返回。", "difficulty": "medium", "tags": ["interrupt", "exception"]},
+        {"title": "操作系统结构", "summary": "常见结构包括单体内核、微内核、分层和模块化。", "key_content": "模块边界、性能、可靠性、可维护性。", "difficulty": "medium", "tags": ["kernel", "architecture"]},
+        {"title": "虚拟机与容器基础", "summary": "虚拟机虚拟硬件，容器复用宿主机内核。", "key_content": "隔离粒度、资源限制、命名空间、镜像。", "difficulty": "medium", "tags": ["virtualization", "container"]}
+      ]
+    },
+    {
+      "name": "进程与线程",
+      "source": "操作系统概念 第3-4章",
+      "knowledge_points": [
+        {"title": "进程概念与 PCB", "summary": "进程是程序的一次执行，PCB 保存进程管理信息。", "key_content": "进程状态、寄存器、调度信息、资源清单。", "difficulty": "easy", "tags": ["process", "pcb"], "case_materials": "编写脚本启动多个子进程，记录 PID、父 PID、状态变化和退出码。"},
+        {"title": "进程状态转换", "summary": "进程在就绪、运行、阻塞等状态间切换。", "key_content": "创建、调度、等待 I/O、唤醒、终止。", "difficulty": "easy", "tags": ["process", "state"]},
+        {"title": "上下文切换", "summary": "上下文切换保存旧进程现场并恢复新进程现场。", "key_content": "寄存器、页表、内核栈、切换开销。", "difficulty": "medium", "tags": ["context-switch"]},
+        {"title": "线程模型", "summary": "线程共享进程资源但拥有独立执行流。", "key_content": "用户级线程、内核级线程、多对多模型。", "difficulty": "medium", "tags": ["thread"]},
+        {"title": "进程间通信", "summary": "进程可通过共享内存或消息传递交换数据。", "key_content": "管道、消息队列、共享内存、Socket。", "difficulty": "medium", "tags": ["ipc"]}
+      ]
+    },
+    {
+      "name": "进程同步与死锁",
+      "source": "操作系统概念 第5-7章",
+      "knowledge_points": [
+        {"title": "临界区问题", "summary": "多个进程访问共享数据时需要满足互斥、进步和有限等待。", "key_content": "临界区、竞态条件、互斥条件。", "difficulty": "medium", "tags": ["sync", "critical-section"], "case_materials": "实现两个线程累加同一计数器，先复现竞态，再用锁修复并比较结果。"},
+        {"title": "互斥锁与自旋锁", "summary": "锁用于保护临界区，自旋锁适合短等待场景。", "key_content": "加锁、释放、忙等、阻塞。", "difficulty": "medium", "tags": ["lock"]},
+        {"title": "信号量", "summary": "信号量用 P/V 操作表达资源计数与同步约束。", "key_content": "二元信号量、计数信号量、wait/signal。", "difficulty": "medium", "tags": ["semaphore"]},
+        {"title": "经典同步问题", "summary": "生产者消费者、读者写者和哲学家问题体现不同同步模式。", "key_content": "缓冲区、优先级、公平性、饥饿。", "difficulty": "hard", "tags": ["sync", "classic-problem"]},
+        {"title": "死锁条件与处理", "summary": "死锁需要互斥、占有并等待、不可抢占和循环等待同时成立。", "key_content": "预防、避免、检测、恢复、银行家算法。", "difficulty": "hard", "tags": ["deadlock"]}
+      ]
+    },
+    {
+      "name": "CPU 调度",
+      "source": "操作系统概念 第6章",
+      "knowledge_points": [
+        {"title": "调度目标与指标", "summary": "调度关注 CPU 利用率、吞吐量、周转时间、等待时间和响应时间。", "key_content": "评价指标计算与场景权衡。", "difficulty": "easy", "tags": ["scheduling", "metrics"], "case_materials": "给定一组进程到达时间和运行时间，编写调度模拟器输出等待时间和周转时间。"},
+        {"title": "先来先服务 FCFS", "summary": "FCFS 按到达顺序运行，简单但可能产生护航效应。", "key_content": "非抢占、平均等待时间、护航效应。", "difficulty": "easy", "tags": ["fcfs"]},
+        {"title": "短作业优先 SJF", "summary": "SJF 优先运行预计 CPU burst 最短的作业。", "key_content": "最优平均等待时间、预测、饥饿。", "difficulty": "medium", "tags": ["sjf"]},
+        {"title": "优先级调度", "summary": "优先级调度按优先级选择进程，可用老化缓解饥饿。", "key_content": "抢占、非抢占、老化。", "difficulty": "medium", "tags": ["priority"]},
+        {"title": "时间片轮转 RR", "summary": "RR 为每个就绪进程分配时间片，适合分时系统。", "key_content": "时间片大小、响应时间、上下文切换。", "difficulty": "medium", "tags": ["round-robin"]}
+      ]
+    },
+    {
+      "name": "内存管理",
+      "source": "操作系统概念 第8章",
+      "knowledge_points": [
+        {"title": "地址重定位", "summary": "逻辑地址通过重定位机制映射到物理地址。", "key_content": "编译时、装入时、运行时重定位。", "difficulty": "medium", "tags": ["memory", "relocation"], "case_materials": "模拟基址寄存器和限长寄存器，判断逻辑地址是否合法并转换物理地址。"},
+        {"title": "连续内存分配", "summary": "连续分配将进程放入一段连续物理内存。", "key_content": "首次适应、最佳适应、最坏适应、外部碎片。", "difficulty": "medium", "tags": ["contiguous-allocation"]},
+        {"title": "分页机制", "summary": "分页把逻辑地址划分为页号和页内偏移。", "key_content": "页表、页框、地址转换、内部碎片。", "difficulty": "medium", "tags": ["paging"]},
+        {"title": "分段机制", "summary": "分段按程序逻辑单元管理内存。", "key_content": "段号、段内偏移、段表、共享保护。", "difficulty": "medium", "tags": ["segmentation"]},
+        {"title": "TLB 地址转换", "summary": "TLB 缓存页表项以加速地址转换。", "key_content": "命中率、有效访问时间、上下文切换刷新。", "difficulty": "hard", "tags": ["tlb"]}
+      ]
+    },
+    {
+      "name": "虚拟内存",
+      "source": "操作系统概念 第9章",
+      "knowledge_points": [
+        {"title": "请求分页", "summary": "请求分页只在访问时把需要的页调入内存。", "key_content": "缺页中断、有效位、懒加载。", "difficulty": "medium", "tags": ["virtual-memory", "demand-paging"], "case_materials": "实现 FIFO/LRU/OPT 页面置换模拟器，输入访问串，输出缺页次数和置换过程。"},
+        {"title": "页面置换算法", "summary": "页面置换决定缺页时淘汰哪个页框。", "key_content": "FIFO、OPT、LRU、Clock。", "difficulty": "hard", "tags": ["page-replacement"]},
+        {"title": "缺页率与有效访问时间", "summary": "有效访问时间受内存访问时间、缺页率和缺页服务时间影响。", "key_content": "EAT 公式、数量级敏感性。", "difficulty": "hard", "tags": ["eat", "page-fault"]},
+        {"title": "工作集模型", "summary": "工作集描述进程近期活跃页面集合。", "key_content": "局部性、工作集窗口、驻留集。", "difficulty": "medium", "tags": ["working-set"]},
+        {"title": "抖动", "summary": "抖动是频繁缺页导致系统主要时间花在换页上。", "key_content": "多道程度、CPU 利用率、工作集控制。", "difficulty": "medium", "tags": ["thrashing"]}
+      ]
+    },
+    {
+      "name": "文件系统",
+      "source": "操作系统概念 第10-11章",
+      "knowledge_points": [
+        {"title": "文件与目录", "summary": "文件是持久化信息集合，目录维护文件名到元数据的映射。", "key_content": "文件属性、目录结构、路径解析。", "difficulty": "easy", "tags": ["file-system", "directory"], "case_materials": "设计一个简化目录树，支持创建文件、创建目录、路径查找和删除操作。"},
+        {"title": "连续分配", "summary": "连续分配将文件块放在连续磁盘空间，顺序访问效率高。", "key_content": "起始块、长度、外部碎片、扩展困难。", "difficulty": "medium", "tags": ["contiguous-allocation"]},
+        {"title": "链接分配", "summary": "链接分配通过指针连接文件块，便于扩展但随机访问慢。", "key_content": "FAT、指针开销、随机访问成本。", "difficulty": "medium", "tags": ["linked-allocation"]},
+        {"title": "索引分配", "summary": "索引分配用索引块保存文件数据块地址，支持随机访问。", "key_content": "索引块、直接索引、多级索引、磁盘 I/O 计算。", "difficulty": "hard", "tags": ["indexed-allocation", "disk-io"]},
+        {"title": "空闲空间管理", "summary": "文件系统需要记录哪些磁盘块空闲。", "key_content": "位图、空闲链表、成组链接、计数法。", "difficulty": "medium", "tags": ["free-space"]}
+      ]
+    },
+    {
+      "name": "设备管理与磁盘调度",
+      "source": "操作系统概念 第12-13章",
+      "knowledge_points": [
+        {"title": "I/O 系统结构", "summary": "I/O 子系统通过驱动、中断和缓冲管理设备访问。", "key_content": "设备控制器、驱动程序、中断处理、DMA。", "difficulty": "medium", "tags": ["io", "device"], "case_materials": "模拟 DMA 传输：比较轮询、中断和 DMA 三种方式下 CPU 参与程度。"},
+        {"title": "缓冲与缓存", "summary": "缓冲平衡速度差异，缓存复用近期数据。", "key_content": "单缓冲、双缓冲、缓冲池、页缓存。", "difficulty": "medium", "tags": ["buffer", "cache"]},
+        {"title": "磁盘结构", "summary": "磁盘访问时间由寻道、旋转延迟和传输时间组成。", "key_content": "柱面、磁道、扇区、访问时间公式。", "difficulty": "medium", "tags": ["disk"]},
+        {"title": "磁盘调度算法", "summary": "磁盘调度决定磁头访问请求的顺序。", "key_content": "FCFS、SSTF、SCAN、C-SCAN。", "difficulty": "hard", "tags": ["disk-scheduling"]}
+      ]
+    }
+  ]
+}
+
