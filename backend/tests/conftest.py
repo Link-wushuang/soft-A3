@@ -1,4 +1,5 @@
 import os
+import time
 
 import pytest
 
@@ -27,13 +28,26 @@ def _override_get_db():
 app.dependency_overrides[get_db] = _override_get_db
 
 
+def _drop_all_with_retry(bind, max_retries=5, delay=0.3):
+    """Drop all tables with retry to handle background thread sessions."""
+    for attempt in range(max_retries):
+        try:
+            Base.metadata.drop_all(bind=bind)
+            return
+        except Exception:
+            if attempt < max_retries - 1:
+                time.sleep(delay)
+            else:
+                raise
+
+
 @pytest.fixture
 def db_session():
     Base.metadata.create_all(bind=_sess.engine)
     session = _sess.SessionLocal()
     yield session
     session.close()
-    Base.metadata.drop_all(bind=_sess.engine)
+    _drop_all_with_retry(bind=_sess.engine)
 
 
 @pytest.fixture
@@ -45,7 +59,7 @@ def test_db():
     init_demo_data(session)
     yield session
     session.close()
-    Base.metadata.drop_all(bind=_sess.engine)
+    _drop_all_with_retry(bind=_sess.engine)
 
 
 @pytest.fixture
