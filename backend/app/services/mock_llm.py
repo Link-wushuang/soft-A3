@@ -162,6 +162,18 @@ class MockLLM(LLMClient):
             }
         if schema_hint == "verifier":
             return {"consistent": True, "issues": [], "confidence": "high"}
+        if schema_hint == "reflection":
+            return {
+                "profile_changes": {
+                    "weak_points": {"added": ["链接分配I/O计算"], "removed": []},
+                    "mastered_points": {"added": [], "removed": []},
+                },
+                "change_reason": "答错了链接分配I/O计算相关题目，说明该知识点仍需加强",
+                "remediation": {
+                    "type": "resource",
+                    "knowledge_point_title": "链接分配",
+                },
+            }
         if schema_hint == "content_guard":
             return {"safe": True, "issues": [], "blocked": False}
         return {"content": self.chat(messages)}

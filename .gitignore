@@ -11,4 +11,5 @@ dist/
 .idea/
 .vscode/
 *.egg-info/
+.claude/
 
