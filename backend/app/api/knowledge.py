@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.models.course import Course, KnowledgePoint
 from app.models.user import User
 
-router = APIRouter(prefix="/api", tags=["knowledge"])
+router = APIRouter(prefix="", tags=["knowledge"])
 
 
 @router.get("/courses")

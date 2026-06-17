@@ -1,6 +1,9 @@
 <template>
   <el-container style="padding:24px;max-width:900px;margin:0 auto">
-    <el-header style="height:auto;padding:16px 0"><h1 style="margin:0">知识点练习</h1></el-header>
+    <el-header style="display:flex;align-items:center;height:auto;padding:16px 0;gap:12px">
+      <el-button :icon="ArrowLeft" @click="$router.back()" circle />
+      <h1 style="margin:0">知识点练习</h1>
+    </el-header>
     <el-main>
       <el-skeleton v-if="loading" :rows="6" animated />
       <el-empty v-else-if="!exercises.length" description="该知识点暂无练习题" />
@@ -18,6 +21,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import api from '../../api/index'
 import ExerciseCard from '../../components/ExerciseCard.vue'
 

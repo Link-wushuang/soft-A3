@@ -8,7 +8,7 @@ from app.models.user import User
 from app.schemas.exercise import AnswerRecordResponse, ExerciseResponse, SubmitAnswerRequest
 from app.services.evaluation_service import submit_and_evaluate
 
-router = APIRouter(prefix="/api/exercises", tags=["exercises"])
+router = APIRouter(prefix="/exercises", tags=["exercises"])
 
 
 @router.get("", response_model=list[ExerciseResponse])

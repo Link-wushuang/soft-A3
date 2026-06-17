@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -8,7 +9,7 @@ from app.models.profile import StudentProfile
 from app.models.resource import GeneratedResource
 from app.models.user import User
 
-router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/summary")
@@ -35,4 +36,75 @@ def student_summary(course_id: int = 1, user: User = Depends(get_current_user),
         "weak_points": profile.weak_points if profile else [],
         "mastered_points": profile.mastered_points if profile else [],
         "mistake_tag_counts": mistake_tag_counts,
+    }
+
+
+@router.get("/teacher-summary")
+def teacher_summary(user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    if user.role != "teacher":
+        raise HTTPException(status_code=403, detail="Teachers only")
+
+    total_students = db.query(User).filter_by(role="student").count()
+
+    total_answers = db.query(AnswerRecord).count()
+    correct_answers = db.query(AnswerRecord).filter_by(is_correct=1).count()
+    overall_correctness_rate = (
+        round(correct_answers / total_answers * 100, 1) if total_answers > 0 else 0
+    )
+
+    total_resources = db.query(GeneratedResource).count()
+
+    type_rows = (
+        db.query(GeneratedResource.resource_type, sa_func.count())
+        .group_by(GeneratedResource.resource_type)
+        .all()
+    )
+    resource_type_counts = {row[0]: row[1] for row in type_rows}
+
+    mistake_tag_counts: dict[str, int] = {}
+    records = db.query(AnswerRecord).all()
+    for record in records:
+        for tag in (record.mistake_tags or []):
+            mistake_tag_counts[tag] = mistake_tag_counts.get(tag, 0) + 1
+
+    top_mistake_tags = sorted(
+        [{"tag": t, "count": c} for t, c in mistake_tag_counts.items()],
+        key=lambda x: x["count"],
+        reverse=True,
+    )[:10]
+
+    trend_by_date: dict[str, dict[str, int]] = {}
+    for record in records:
+        day = record.created_at.date().isoformat() if record.created_at else "unknown"
+        bucket = trend_by_date.setdefault(day, {"total": 0, "correct": 0})
+        bucket["total"] += 1
+        if record.is_correct:
+            bucket["correct"] += 1
+
+    correctness_rate_trend = [
+        {
+            "date": day,
+            "correctness_rate": round(bucket["correct"] / bucket["total"] * 100, 1),
+            "total_answers": bucket["total"],
+        }
+        for day, bucket in sorted(trend_by_date.items())
+    ]
+
+    weak_points: list[str] = []
+    profiles = db.query(StudentProfile).all()
+    for p in profiles:
+        for wp in (p.weak_points or []):
+            if wp not in weak_points:
+                weak_points.append(wp)
+
+    return {
+        "total_students": total_students,
+        "total_answers": total_answers,
+        "overall_correctness_rate": overall_correctness_rate,
+        "total_resources": total_resources,
+        "resource_type_counts": resource_type_counts,
+        "top_mistake_tags": top_mistake_tags,
+        "correctness_rate_trend": correctness_rate_trend,
+        "weak_points_summary": weak_points,
     }

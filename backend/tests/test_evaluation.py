@@ -55,7 +55,7 @@ def test_reflection_agent_updates_profile():
 
 def test_submit_answer_endpoint(client):
     resp = client.post("/api/auth/login", json={
-        "username": "demo_student", "password": "demo123",
+        "username": "demo_student", "password": "demo123456",
     })
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -79,7 +79,7 @@ def test_submit_answer_endpoint(client):
 
 def test_answer_records_endpoint(client):
     resp = client.post("/api/auth/login", json={
-        "username": "demo_student", "password": "demo123",
+        "username": "demo_student", "password": "demo123456",
     })
     token = resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
