@@ -3,6 +3,7 @@ import time
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -100,9 +101,30 @@ def stream_generation(task_id: int, token: str = Query(...)):
 def list_resources(knowledge_point_id: int = Query(...),
                    user: User = Depends(get_current_user),
                    db: Session = Depends(get_db)):
-    resources = db.query(GeneratedResource).filter_by(
-        knowledge_point_id=knowledge_point_id, user_id=user.id
-    ).order_by(GeneratedResource.created_at.desc()).all()
+    # Return only the latest resource per resource_type for this
+    # knowledge point + user, so that re-running generation does not
+    # produce duplicate tabs in the UI.
+    subq = (
+        db.query(
+            GeneratedResource.resource_type,
+            func.max(GeneratedResource.id).label("max_id"),
+        )
+        .filter_by(knowledge_point_id=knowledge_point_id, user_id=user.id)
+        .group_by(GeneratedResource.resource_type)
+        .subquery()
+    )
+    resources = (
+        db.query(GeneratedResource)
+        .join(
+            subq,
+            and_(
+                GeneratedResource.resource_type == subq.c.resource_type,
+                GeneratedResource.id == subq.c.max_id,
+            ),
+        )
+        .order_by(GeneratedResource.resource_type)
+        .all()
+    )
     return resources
 
 

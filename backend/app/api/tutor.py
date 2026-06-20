@@ -36,6 +36,13 @@ def tutor_ask(
         "tags": kp.tags,
     }
 
+    # Fetch document chunks (textbook OCR) for additional context
+    from app.agents.knowledge_agent import KnowledgeAgent
+    k_agent = KnowledgeAgent()
+    doc_context = k_agent._get_document_context(db, kp)
+    if doc_context:
+        knowledge_context["document_context"] = doc_context
+
     profile = db.query(StudentProfile).filter_by(
         user_id=user.id, course_id=kp.course_id
     ).first()

@@ -39,10 +39,23 @@ class KnowledgeAgent(BaseAgent):
             from app.models.document import DocumentChunk
         except ImportError:
             return ""
+        # 1. Chunks directly linked to this knowledge point
         chunks = db.query(DocumentChunk).filter_by(knowledge_point_id=kp.id).limit(3).all()
+        # 2. Full-text search by title
         if not chunks:
             chunks = db.query(DocumentChunk).filter(
                 DocumentChunk.content.contains(kp.title)
+            ).limit(3).all()
+        # 3. Partial title match (first 6 chars, to handle OCR errors)
+        if not chunks and len(kp.title) >= 6:
+            short = kp.title[:6]
+            chunks = db.query(DocumentChunk).filter(
+                DocumentChunk.content.contains(short)
+            ).limit(3).all()
+        # 4. Match by chapter + any content
+        if not chunks and kp.chapter:
+            chunks = db.query(DocumentChunk).filter(
+                DocumentChunk.content.contains(kp.chapter[:4])
             ).limit(3).all()
         if not chunks:
             return ""
