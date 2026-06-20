@@ -1,3 +1,5 @@
+import json
+
 from sqlalchemy.orm import Session
 
 from app.agents.profile_agent import ProfileAgent
@@ -59,21 +61,54 @@ def extract_and_save_profile(db: Session, user_id: int, course_id: int, message:
     db.add(log)
     db.commit()
     db.refresh(existing)
-    return {**profile_data, "confidence": existing.confidence}
+    reply = _build_reply(profile_data)
+    return {**profile_data, "confidence": existing.confidence, "reply": reply}
+
+
+LEVEL_LABELS = {"low": "基础薄弱", "medium": "中等水平", "high": "基础扎实"}
+STYLE_LABELS = {"visual": "视觉型", "auditory": "听觉型", "kinesthetic": "动手型", "reading": "阅读型"}
+
+
+def _build_reply(data: dict) -> str:
+    parts = ["我已经根据你的描述更新了学习画像，以下是分析结果：\n"]
+    level = LEVEL_LABELS.get(data.get("base_level", ""), data.get("base_level", ""))
+    parts.append(f"📊 **基础水平**：{level}")
+    if data.get("learning_goal"):
+        parts.append(f"🎯 **学习目标**：{data['learning_goal']}")
+    if data.get("weak_points"):
+        parts.append(f"⚠️ **薄弱知识点**：{', '.join(data['weak_points'])}")
+    if data.get("mastered_points"):
+        parts.append(f"✅ **已掌握**：{', '.join(data['mastered_points'])}")
+    if data.get("learning_preference"):
+        parts.append(f"💡 **学习偏好**：{', '.join(data['learning_preference'])}")
+    style = STYLE_LABELS.get(data.get("cognitive_style", ""), data.get("cognitive_style", ""))
+    parts.append(f"🧠 **认知风格**：{style}")
+    if data.get("time_budget"):
+        parts.append(f"⏰ **时间预算**：{data['time_budget']}")
+    parts.append("\n建议你前往「学习路径」页面，系统将根据以上画像为你规划个性化学习路径。")
+    return "\n".join(parts)
 
 
 def _normalize_profile(data: dict) -> dict:
+    ks = data.get("knowledge_state", "")
+    if isinstance(ks, (dict, list)):
+        ks = json.dumps(ks, ensure_ascii=False)
+
+    tb = data.get("time_budget", "")
+    if isinstance(tb, (dict, list)):
+        tb = json.dumps(tb, ensure_ascii=False)
+
     return {
-        "base_level": data.get("base_level", "medium"),
-        "learning_goal": data.get("learning_goal", ""),
-        "knowledge_state": data.get("knowledge_state", ""),
+        "base_level": str(data.get("base_level", "medium")),
+        "learning_goal": str(data.get("learning_goal", "")),
+        "knowledge_state": str(ks),
         "weak_points": list(data.get("weak_points") or []),
         "mastered_points": list(data.get("mastered_points") or []),
         "learning_preference": list(data.get("learning_preference") or []),
-        "cognitive_style": data.get("cognitive_style", "visual"),
-        "time_budget": data.get("time_budget", ""),
-        "confidence": data.get("confidence", "medium"),
-        "evidence": data.get("evidence", ""),
-        "profile_change_reason": data.get("profile_change_reason", "Profile extracted from dialogue"),
+        "cognitive_style": str(data.get("cognitive_style", "visual")),
+        "time_budget": str(tb),
+        "confidence": str(data.get("confidence", "medium")),
+        "evidence": str(data.get("evidence", "")),
+        "profile_change_reason": str(data.get("profile_change_reason", "Profile extracted from dialogue")),
     }
 

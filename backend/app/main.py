@@ -1,9 +1,28 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 
-app = FastAPI(title="EduPath Agent", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    import app.db.session as sess
+    from app.db.base import Base
+    import app.models  # noqa: F401  — registers all models with Base
+    from app.db.init_data import init_demo_data
+
+    Base.metadata.create_all(bind=sess.engine)
+    db = sess.SessionLocal()
+    try:
+        init_demo_data(db)
+    finally:
+        db.close()
+    yield
+
+
+app = FastAPI(title="EduPath Agent", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

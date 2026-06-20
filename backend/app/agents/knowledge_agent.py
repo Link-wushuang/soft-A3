@@ -17,7 +17,7 @@ class KnowledgeAgent(BaseAgent):
         kp = db.query(KnowledgePoint).filter_by(id=knowledge_point_id).first()
         if not kp:
             return {}
-        return {
+        result = {
             "title": kp.title,
             "chapter": kp.chapter,
             "summary": kp.summary,
@@ -28,3 +28,22 @@ class KnowledgeAgent(BaseAgent):
             "tags": kp.tags,
             "sources": kp.sources,
         }
+
+        doc_context = self._get_document_context(db, kp)
+        if doc_context:
+            result["document_context"] = doc_context
+        return result
+
+    def _get_document_context(self, db, kp) -> str:
+        try:
+            from app.models.document import DocumentChunk
+        except ImportError:
+            return ""
+        chunks = db.query(DocumentChunk).filter_by(knowledge_point_id=kp.id).limit(3).all()
+        if not chunks:
+            chunks = db.query(DocumentChunk).filter(
+                DocumentChunk.content.contains(kp.title)
+            ).limit(3).all()
+        if not chunks:
+            return ""
+        return "\n\n".join(c.content for c in chunks)

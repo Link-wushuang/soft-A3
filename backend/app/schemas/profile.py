@@ -16,6 +16,7 @@ class ProfileResponse(BaseModel):
     cognitive_style: str
     time_budget: str
     confidence: str
+    reply: str = ""
 
     model_config = {"from_attributes": True}
 

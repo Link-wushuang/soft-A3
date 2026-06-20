@@ -22,6 +22,10 @@ router = APIRouter(prefix="/resources", tags=["resources"])
 @router.post("/generate")
 def generate(req: GenerateResourceRequest, user: User = Depends(get_current_user),
              db: Session = Depends(get_db)):
+    from app.models.course import KnowledgePoint
+    kp = db.query(KnowledgePoint).filter_by(id=req.knowledge_point_id).first()
+    if not kp:
+        raise HTTPException(status_code=404, detail="知识点不存在")
     task_id = start_resource_generation(db, user.id, req.knowledge_point_id)
     return {"task_id": task_id}
 

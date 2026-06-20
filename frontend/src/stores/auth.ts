@@ -10,12 +10,17 @@ export const useAuthStore = defineStore('auth', () => {
     const res = await apiLogin(username, password)
     token.value = res.data.access_token
     localStorage.setItem('token', token.value)
-    user.value = { id: res.data.user_id, role: res.data.role, displayName: res.data.display_name }
+    await fetchUser()
   }
 
   async function fetchUser() {
-    const res = await getMe()
-    user.value = res.data
+    if (!token.value) return
+    try {
+      const res = await getMe()
+      user.value = res.data
+    } catch {
+      logout()
+    }
   }
 
   function logout() {

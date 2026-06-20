@@ -1,3 +1,15 @@
+# Deprecated Plan Notice
+
+This file is kept only as historical context. Do not execute tasks from this plan.
+
+The authoritative implementation plan is:
+
+`docs/superpowers/plans/2026-06-16-edupath-agent.md`
+
+Current implementation work, task numbering, verification gates, and submission checklist must follow the Superpowers plan above. Some wording in this older file, such as `labs`, reflects an earlier roadmap and may not match the current `case_materials` schema.
+
+---
+
 # A3 EduPath Agent Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

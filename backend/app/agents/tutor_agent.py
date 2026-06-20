@@ -1,0 +1,28 @@
+import json
+from pathlib import Path
+from typing import Any
+
+from app.agents.base_agent import BaseAgent
+from app.services.llm_client import LLMClient, get_llm_client
+
+PROMPT_PATH = Path(__file__).parent.parent / "prompts" / "tutor.txt"
+
+
+class TutorAgent(BaseAgent):
+    name = "TutorAgent"
+
+    def __init__(self, llm: LLMClient | None = None):
+        super().__init__(llm or get_llm_client())
+        self.system_prompt = PROMPT_PATH.read_text(encoding="utf-8") if PROMPT_PATH.exists() else "Answer student questions."
+
+    def _execute(self, question: str = "", profile: dict | None = None, knowledge_context: dict | None = None, **kwargs) -> Any:
+        user_content = (
+            f"学生画像:\n{json.dumps(profile or {}, ensure_ascii=False)}\n\n"
+            f"知识点上下文:\n{json.dumps(knowledge_context or {}, ensure_ascii=False)}\n\n"
+            f"学生提问:\n{question}"
+        )
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": user_content},
+        ]
+        return {"answer": self.llm.chat(messages)}
