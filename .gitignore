@@ -14,3 +14,14 @@ dist/
 submission_package/
 .claude/
 
+# Textbook PDF (large, copyrighted)
+*.pdf
+# OCR cache images
+data/textbook_ocr/*.png
+# Backup files
+*_backup_*.json
+*_enriched.json
+# Temp screenshots
+*screenshot*.png
+*sample_page*.png
+
