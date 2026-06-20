@@ -7,6 +7,7 @@ const routes = [
   { path: '/student/learning-path', name: 'LearningPath', component: () => import('../views/student/LearningPath.vue') },
   { path: '/student/resources/:knowledgePointId', name: 'ResourceGenerate', component: () => import('../views/student/ResourceGenerate.vue') },
   { path: '/student/exercise/:knowledgePointId', name: 'Exercise', component: () => import('../views/student/Exercise.vue') },
+  { path: '/student/tutor/:knowledgePointId', name: 'TutorChat', component: () => import('../views/student/TutorChat.vue') },
   { path: '/teacher/knowledge', name: 'TeacherKnowledge', component: () => import('../views/teacher/KnowledgeManage.vue') },
   { path: '/teacher/analytics', name: 'TeacherAnalytics', component: () => import('../views/teacher/Analytics.vue') },
   { path: '/', redirect: '/login' },

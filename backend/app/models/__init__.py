@@ -1,5 +1,6 @@
 from app.models.agent_task import AgentTask, AgentTrace
 from app.models.course import Course, KnowledgePoint, KnowledgeSource
+from app.models.document import CourseDocument, DocumentChunk
 from app.models.exercise import AnswerRecord, Exercise
 from app.models.learning_path import LearningPath, LearningPathNode
 from app.models.profile import ProfileUpdateLog, StudentProfile
@@ -12,6 +13,8 @@ __all__ = [
     "Course",
     "KnowledgePoint",
     "KnowledgeSource",
+    "CourseDocument",
+    "DocumentChunk",
     "StudentProfile",
     "ProfileUpdateLog",
     "LearningPath",

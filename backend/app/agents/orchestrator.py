@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 from typing import Any
 
@@ -42,7 +43,9 @@ class Orchestrator:
         )
         context = knowledge_result.data if knowledge_result.success else (knowledge_context or {})
 
-        for resource_type, agent_cls in RESOURCE_AGENTS:
+        for i, (resource_type, agent_cls) in enumerate(RESOURCE_AGENTS):
+            if i > 0:
+                time.sleep(2)
             result = self._run_agent(
                 agent_cls(self.llm), trace, on_trace,
                 profile=profile, knowledge_context=context,
@@ -61,7 +64,9 @@ class Orchestrator:
         verifier = VerifierAgent(self.llm)
         guard = ContentGuardAgent(self.llm)
 
-        for resource in resources:
+        for idx, resource in enumerate(resources):
+            if idx > 0:
+                time.sleep(2)
             v_result = self._run_agent(
                 verifier, trace, on_trace,
                 resource=resource, knowledge_context=context,
@@ -71,6 +76,7 @@ class Orchestrator:
                     resource["warnings"].append("factual_inconsistency")
                     resource["confidence"] = "low"
 
+            time.sleep(1)
             g_result = self._run_agent(
                 guard, trace, on_trace,
                 resource=resource,
@@ -97,7 +103,12 @@ class Orchestrator:
         if on_trace:
             on_trace(trace_item)
 
-        result = agent.run(**kwargs)
+        try:
+            result = agent.run(**kwargs)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("Agent %s crashed: %s", agent.name, exc)
+            result = AgentResult(success=False, data={}, error=str(exc), warnings=["agent_crashed"])
 
         trace_item["status"] = "success" if result.success else "failed"
         trace_item["finished_at"] = datetime.now()

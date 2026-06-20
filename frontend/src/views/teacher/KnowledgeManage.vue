@@ -1,68 +1,92 @@
 <template>
-  <el-container style="padding:24px;max-width:1400px;margin:0 auto">
-    <el-header style="display:flex;justify-content:space-between;align-items:center;height:auto;padding:16px 0">
-      <h1 style="margin:0">知识点管理</h1>
-      <el-button type="primary" @click="openCreate">新增知识点</el-button>
-    </el-header>
-    <el-main>
-      <el-table :data="knowledgePoints" v-loading="loading" stripe border style="width:100%">
-        <el-table-column prop="chapter" label="章节" width="200" />
-        <el-table-column prop="title" label="标题" min-width="200" />
-        <el-table-column prop="difficulty" label="难度" width="100">
-          <template #default="{ row }">
-            <el-tag :type="difficultyType(row.difficulty)" size="small">{{ row.difficulty }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="tags" label="标签" min-width="150">
-          <template #default="{ row }">
-            <el-tag v-for="tag in (row.tags || [])" :key="tag" size="small" style="margin:2px">{{ tag }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+  <div class="page-container" style="max-width:1400px">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">知识点管理</h1>
+        <p class="page-subtitle">管理操作系统课程知识点库</p>
+      </div>
+      <el-button type="primary" @click="openCreate">
+        <el-icon style="margin-right:6px"><Plus /></el-icon>
+        新增知识点
+      </el-button>
+    </div>
 
-      <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑知识点' : '新增知识点'" width="600px">
-        <el-form :model="form" label-width="80px">
-          <el-form-item label="章节">
-            <el-input v-model="form.chapter" placeholder="如：第一章 操作系统概述" />
-          </el-form-item>
-          <el-form-item label="标题">
-            <el-input v-model="form.title" placeholder="知识点标题" />
-          </el-form-item>
-          <el-form-item label="摘要">
-            <el-input v-model="form.summary" type="textarea" :rows="3" placeholder="知识点摘要" />
-          </el-form-item>
-          <el-form-item label="核心内容">
-            <el-input v-model="form.key_content" type="textarea" :rows="3" placeholder="核心内容" />
-          </el-form-item>
-          <el-form-item label="难度">
-            <el-select v-model="form.difficulty" style="width:100%">
-              <el-option label="简单" value="easy" />
-              <el-option label="中等" value="medium" />
-              <el-option label="困难" value="hard" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="标签">
-            <el-input v-model="tagsInput" placeholder="逗号分隔，如：进程,调度,CPU" />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
-        </template>
-      </el-dialog>
-    </el-main>
-  </el-container>
+    <div class="card">
+      <div class="card-body" style="padding:0">
+        <el-table :data="knowledgePoints" v-loading="loading" style="width:100%"
+                  :header-cell-style="{ background: 'var(--ep-bg-hover)', fontWeight: 600 }">
+          <el-table-column prop="chapter" label="章节" width="200" />
+          <el-table-column prop="title" label="标题" min-width="200">
+            <template #default="{ row }">
+              <span style="font-weight:500">{{ row.title }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="difficulty" label="难度" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="difficultyType(row.difficulty)" size="small" effect="light" round>
+                {{ diffLabels[row.difficulty] || row.difficulty }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="tags" label="标签" min-width="180">
+            <template #default="{ row }">
+              <el-tag v-for="tag in (row.tags || [])" :key="tag" size="small" effect="light" round
+                      style="margin:2px 4px 2px 0">{{ tag }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button>
+              <el-button size="small" link type="danger" @click="handleDelete(row.id)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
+
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑知识点' : '新增知识点'" width="600px" top="8vh">
+      <el-form :model="form" label-width="80px" label-position="top">
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="章节">
+              <el-input v-model="form.chapter" placeholder="如：第一章 操作系统概述" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="难度">
+              <el-select v-model="form.difficulty" style="width:100%">
+                <el-option label="简单" value="easy" />
+                <el-option label="中等" value="medium" />
+                <el-option label="困难" value="hard" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="标题">
+          <el-input v-model="form.title" placeholder="知识点标题" />
+        </el-form-item>
+        <el-form-item label="摘要">
+          <el-input v-model="form.summary" type="textarea" :rows="3" placeholder="知识点摘要" />
+        </el-form-item>
+        <el-form-item label="核心内容">
+          <el-input v-model="form.key_content" type="textarea" :rows="3" placeholder="核心内容" />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="tagsInput" placeholder="逗号分隔，如：进程,调度,CPU" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import api from '../../api/index'
 
 interface KnowledgePoint {
@@ -91,6 +115,8 @@ const isEdit = ref(false)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const tagsInput = ref('')
+
+const diffLabels: Record<string, string> = { easy: '简单', medium: '中等', hard: '困难' }
 
 const form = ref<FormData>({
   course_id: 1,

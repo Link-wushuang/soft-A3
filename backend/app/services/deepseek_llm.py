@@ -1,8 +1,8 @@
-import json
 from collections.abc import Iterator
 
 import httpx
 
+from app.services.json_utils import safe_parse_json
 from app.services.llm_client import LLMClient
 
 
@@ -25,21 +25,8 @@ class DeepSeekLLM(LLMClient):
 
     def chat_json(self, messages: list[dict[str, str]], schema_hint: str = "") -> dict:
         content = self.chat(messages)
-        return json.loads(_extract_json(content))
+        return safe_parse_json(content)
 
     def stream(self, messages: list[dict[str, str]]) -> Iterator[str]:
         yield self.chat(messages)
-
-
-def _extract_json(content: str) -> str:
-    stripped = content.strip()
-    if stripped.startswith("```"):
-        stripped = stripped.strip("`")
-        if stripped.lower().startswith("json"):
-            stripped = stripped[4:]
-    start = stripped.find("{")
-    end = stripped.rfind("}")
-    if start >= 0 and end >= start:
-        return stripped[start : end + 1]
-    return stripped
 

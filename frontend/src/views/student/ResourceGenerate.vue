@@ -1,41 +1,72 @@
 <template>
-  <el-container style="padding:24px;max-width:1200px;margin:0 auto">
-    <el-header style="display:flex;justify-content:space-between;align-items:center;height:auto;padding:16px 0">
+  <div class="page-container">
+    <div class="page-header">
       <div style="display:flex;align-items:center;gap:12px">
-        <el-button :icon="ArrowLeft" @click="$router.back()" circle />
-        <h1 style="margin:0">资源生成</h1>
+        <button class="back-btn" @click="$router.back()">
+          <el-icon><ArrowLeft /></el-icon>
+        </button>
+        <div>
+          <h1 class="page-title">资源生成</h1>
+          <p class="page-subtitle">多智能体协同为你生成6种个性化学习资源</p>
+        </div>
       </div>
-      <div style="display:flex;gap:8px">
-        <el-button @click="$router.push(`/student/exercise/${kpId}`)">做练习</el-button>
+      <div style="display:flex;gap:10px">
+        <el-button @click="$router.push(`/student/tutor/${kpId}`)">
+          <el-icon style="margin-right:6px"><ChatDotRound /></el-icon>
+          智能答疑
+        </el-button>
+        <el-button @click="$router.push(`/student/exercise/${kpId}`)">
+          <el-icon style="margin-right:6px"><EditPen /></el-icon>
+          做练习
+        </el-button>
         <el-button type="primary" @click="startGeneration" :loading="generating" :disabled="!!taskId">
+          <el-icon style="margin-right:6px"><MagicStick /></el-icon>
           {{ taskId ? '生成中...' : '开始生成' }}
         </el-button>
       </div>
-    </el-header>
-    <el-main>
-      <el-row :gutter="24">
-        <el-col :span="6">
-          <AgentTracePanel :traces="traces" />
-        </el-col>
-        <el-col :span="18">
-          <el-tabs v-if="resources.length" v-model="activeTab">
-            <el-tab-pane v-for="res in resources" :key="res.id" :label="typeLabels[res.resource_type] || res.resource_type" :name="String(res.id)">
-              <ResourceCard :resource="res" />
-            </el-tab-pane>
-          </el-tabs>
-          <el-skeleton v-else-if="generating" :rows="8" animated />
-          <el-empty v-else description="点击「开始生成」为当前知识点生成个性化资源" />
-        </el-col>
-      </el-row>
-    </el-main>
-  </el-container>
+    </div>
+
+    <div class="resource-layout">
+      <div class="resource-sidebar">
+        <AgentTracePanel :traces="traces" />
+      </div>
+      <div class="resource-main">
+        <div v-if="resources.length" class="resource-tabs card">
+          <div class="tab-bar">
+            <button v-for="res in resources" :key="res.id"
+                    :class="['res-tab', { active: activeTab === String(res.id) }]"
+                    @click="activeTab = String(res.id)">
+              <span class="tab-icon">{{ typeIcons[res.resource_type] || '📄' }}</span>
+              {{ typeLabels[res.resource_type] || res.resource_type }}
+            </button>
+          </div>
+          <div class="tab-content">
+            <ResourceCard v-for="res in resources" :key="res.id" v-show="activeTab === String(res.id)" :resource="res" />
+          </div>
+        </div>
+        <el-skeleton v-else-if="generating" :rows="8" animated />
+        <div v-else class="empty-state card">
+          <div class="card-body" style="text-align:center;padding:60px 40px">
+            <svg width="56" height="56" viewBox="0 0 56 56" fill="none" style="margin-bottom:20px">
+              <rect width="56" height="56" rx="14" fill="#f5f3ff"/>
+              <path d="M28 20V36M20 28H36" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <h3 style="margin:0 0 8px;font-size:18px">准备生成学习资源</h3>
+            <p style="color:var(--ep-text-secondary);margin:0;font-size:14px">
+              点击「开始生成」，14个智能体将协同为你生成个性化资源
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, ChatDotRound, EditPen, MagicStick } from '@element-plus/icons-vue'
 import api from '../../api/index'
 import AgentTracePanel from '../../components/AgentTracePanel.vue'
 import ResourceCard from '../../components/ResourceCard.vue'
@@ -47,9 +78,14 @@ const generating = ref(false)
 const traces = ref<any[]>([])
 const resources = ref<any[]>([])
 const activeTab = ref('')
+
 const typeLabels: Record<string, string> = {
   lecture: '个性化讲解', mindmap: '思维导图', exercise: '练习题',
   case: '实操案例', extended_reading: '拓展阅读', video_storyboard: '视频分镜',
+}
+const typeIcons: Record<string, string> = {
+  lecture: '📖', mindmap: '🧠', exercise: '✏️',
+  case: '💻', extended_reading: '📚', video_storyboard: '🎬',
 }
 
 onMounted(async () => {
@@ -98,3 +134,81 @@ function pollSSE(tid: number) {
   })
 }
 </script>
+
+<style scoped>
+.resource-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.resource-sidebar {
+  position: sticky;
+  top: 32px;
+}
+
+.back-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ep-radius-sm);
+  border: 1px solid var(--ep-border);
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--ep-transition);
+  color: var(--ep-text-secondary);
+}
+
+.back-btn:hover {
+  border-color: var(--ep-primary);
+  color: var(--ep-primary);
+}
+
+.resource-tabs {
+  overflow: hidden;
+}
+
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--ep-border-light);
+  overflow-x: auto;
+  padding: 0 8px;
+}
+
+.res-tab {
+  padding: 14px 18px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ep-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all var(--ep-transition);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.res-tab:hover {
+  color: var(--ep-text-primary);
+}
+
+.res-tab.active {
+  color: var(--ep-primary);
+  border-bottom-color: var(--ep-primary);
+}
+
+.tab-icon {
+  font-size: 15px;
+}
+
+.tab-content {
+  padding: 20px;
+}
+</style>

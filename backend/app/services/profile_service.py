@@ -1,3 +1,5 @@
+import json
+
 from sqlalchemy.orm import Session
 
 from app.agents.profile_agent import ProfileAgent
@@ -88,17 +90,25 @@ def _build_reply(data: dict) -> str:
 
 
 def _normalize_profile(data: dict) -> dict:
+    ks = data.get("knowledge_state", "")
+    if isinstance(ks, (dict, list)):
+        ks = json.dumps(ks, ensure_ascii=False)
+
+    tb = data.get("time_budget", "")
+    if isinstance(tb, (dict, list)):
+        tb = json.dumps(tb, ensure_ascii=False)
+
     return {
-        "base_level": data.get("base_level", "medium"),
-        "learning_goal": data.get("learning_goal", ""),
-        "knowledge_state": data.get("knowledge_state", ""),
+        "base_level": str(data.get("base_level", "medium")),
+        "learning_goal": str(data.get("learning_goal", "")),
+        "knowledge_state": str(ks),
         "weak_points": list(data.get("weak_points") or []),
         "mastered_points": list(data.get("mastered_points") or []),
         "learning_preference": list(data.get("learning_preference") or []),
-        "cognitive_style": data.get("cognitive_style", "visual"),
-        "time_budget": data.get("time_budget", ""),
-        "confidence": data.get("confidence", "medium"),
-        "evidence": data.get("evidence", ""),
-        "profile_change_reason": data.get("profile_change_reason", "Profile extracted from dialogue"),
+        "cognitive_style": str(data.get("cognitive_style", "visual")),
+        "time_budget": str(tb),
+        "confidence": str(data.get("confidence", "medium")),
+        "evidence": str(data.get("evidence", "")),
+        "profile_change_reason": str(data.get("profile_change_reason", "Profile extracted from dialogue")),
     }
 
