@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.db.session import get_db
+from app.models.course import KnowledgePoint
 from app.models.exercise import AnswerRecord
 from app.models.profile import StudentProfile
 from app.models.resource import GeneratedResource
@@ -37,6 +38,52 @@ def student_summary(course_id: int = 1, user: User = Depends(get_current_user),
         "mastered_points": profile.mastered_points if profile else [],
         "mistake_tag_counts": mistake_tag_counts,
     }
+
+
+@router.get("/recommendations")
+def recommendations(course_id: int = Query(1), user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
+    profile = db.query(StudentProfile).filter_by(user_id=user.id, course_id=course_id).first()
+    if not profile:
+        return {"recommended": [], "reason": "请先完成对话建档"}
+
+    weak = profile.weak_points or []
+
+    mistake_counts: dict[int, int] = {}
+    records = db.query(AnswerRecord).filter_by(user_id=user.id, is_correct=0).all()
+    from app.models.exercise import Exercise
+    for r in records:
+        ex = db.query(Exercise).filter_by(id=r.exercise_id).first()
+        if ex:
+            mistake_counts[ex.knowledge_point_id] = mistake_counts.get(ex.knowledge_point_id, 0) + 1
+
+    recommended = []
+    all_kps = db.query(KnowledgePoint).filter_by(course_id=course_id).all()
+    for kp in all_kps:
+        score = 0
+        reasons = []
+        if kp.title in weak:
+            score += 3
+            reasons.append("画像薄弱点")
+        if kp.id in mistake_counts:
+            score += mistake_counts[kp.id]
+            reasons.append(f"答错{mistake_counts[kp.id]}题")
+        if kp.title not in (profile.mastered_points or []) and score == 0:
+            if kp.difficulty in ("medium", "hard"):
+                score += 1
+                reasons.append("未掌握的中高难度知识点")
+        if score > 0:
+            recommended.append({
+                "knowledge_point_id": kp.id,
+                "title": kp.title,
+                "chapter": kp.chapter,
+                "difficulty": kp.difficulty,
+                "score": score,
+                "reasons": reasons,
+            })
+
+    recommended.sort(key=lambda x: x["score"], reverse=True)
+    return {"recommended": recommended[:8]}
 
 
 @router.get("/teacher-summary")

@@ -79,7 +79,26 @@
       </div>
 
       <div class="content-aside">
-        <div v-if="profile?.weak_points?.length" class="card">
+        <div v-if="recommendations.length" class="card recommend-card">
+          <div class="card-header" style="display:flex;align-items:center;gap:8px">
+            <el-icon style="color:#7c3aed"><MagicStick /></el-icon>
+            智能推荐
+          </div>
+          <div class="card-body" style="padding:0">
+            <div v-for="rec in recommendations" :key="rec.knowledge_point_id" class="recommend-item"
+                 @click="$router.push(`/student/resources/${rec.knowledge_point_id}`)">
+              <div class="recommend-info">
+                <div class="recommend-title">{{ rec.title }}</div>
+                <div class="recommend-reasons">
+                  <el-tag v-for="r in rec.reasons" :key="r" size="small" effect="light" round type="warning">{{ r }}</el-tag>
+                </div>
+              </div>
+              <el-icon style="color:var(--ep-text-muted)"><ArrowRight /></el-icon>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="profile?.weak_points?.length" class="card" :style="recommendations.length ? 'margin-top:16px' : ''">
           <div class="card-header" style="display:flex;align-items:center;gap:8px">
             <el-icon style="color:#ef4444"><WarningFilled /></el-icon>
             薄弱知识点
@@ -120,11 +139,12 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import ProfileCard from '../../components/ProfileCard.vue'
-import { ChatDotRound, Guide, User, WarningFilled, SuccessFilled, Timer } from '@element-plus/icons-vue'
+import { ChatDotRound, Guide, User, WarningFilled, SuccessFilled, Timer, MagicStick, ArrowRight } from '@element-plus/icons-vue'
 import api from '../../api/index'
 
 const auth = useAuthStore()
 const profile = ref<any>(null)
+const recommendations = ref<any[]>([])
 
 const levelLabels: Record<string, string> = {
   beginner: '初学者',
@@ -137,6 +157,10 @@ onMounted(async () => {
     const res = await api.get('/profile/1')
     profile.value = res.data
   } catch { /* no profile yet */ }
+  try {
+    const res = await api.get('/analytics/recommendations')
+    recommendations.value = res.data.recommended || []
+  } catch { /* no recommendations */ }
 })
 </script>
 
@@ -205,5 +229,41 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.recommend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background var(--ep-transition);
+  border-bottom: 1px solid var(--ep-border-light);
+}
+
+.recommend-item:last-child {
+  border-bottom: none;
+}
+
+.recommend-item:hover {
+  background: var(--ep-bg-hover);
+}
+
+.recommend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.recommend-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ep-text-primary);
+  margin-bottom: 6px;
+}
+
+.recommend-reasons {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 </style>

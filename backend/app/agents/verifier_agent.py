@@ -19,12 +19,16 @@ class VerifierAgent(BaseAgent):
             self.system_prompt = "Verify factual consistency of generated content."
 
     def _execute(self, resource: dict | None = None, knowledge_context: dict | None = None, **kwargs) -> Any:
+        ctx = knowledge_context or {}
+        context_parts = [f"知识点上下文:\n{json.dumps(ctx, ensure_ascii=False)}"]
+        if ctx.get("document_context"):
+            context_parts.append(f"\n教材原文（作为事实验证基准）:\n{ctx['document_context']}")
         messages = [
             {"role": "system", "content": self.system_prompt},
             {"role": "user", "content": (
-                f"知识点上下文:\n{json.dumps(knowledge_context or {}, ensure_ascii=False)}\n\n"
+                "\n".join(context_parts) + "\n\n"
                 f"生成的资源:\n{json.dumps(resource or {}, ensure_ascii=False)}\n\n"
-                "请验证资源内容的事实一致性。"
+                "请对照知识点上下文和教材原文，逐条验证资源内容的事实一致性。"
             )},
         ]
         return self.llm.chat_json(messages, schema_hint="verifier")

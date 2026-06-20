@@ -41,47 +41,80 @@ def submit_and_evaluate(db: Session, user_id: int, exercise_id: int,
     db.add(record)
 
     kp = db.query(KnowledgePoint).filter_by(id=exercise.knowledge_point_id).first()
+    kp_title = kp.title if kp else ""
     profile = db.query(StudentProfile).filter_by(user_id=user_id).first()
 
     reflection_data: dict = {}
-    if profile and not eval_data.get("is_correct"):
-        reflection_agent = ReflectionAgent(llm=llm)
-        ref_result = reflection_agent.run(
-            evaluation_result=eval_data,
-            current_profile={
-                "weak_points": profile.weak_points or [],
-                "mastered_points": profile.mastered_points or [],
-            },
-        )
-        if ref_result.success:
-            reflection_data = ref_result.data
-            changes = reflection_data.get("profile_changes", {})
-            weak_changes = changes.get("weak_points", {})
-            new_weak = list(set(
-                (profile.weak_points or []) +
-                weak_changes.get("added", [])
-            ) - set(weak_changes.get("removed", [])))
-            old_json = {
-                "weak_points": profile.weak_points,
-                "mastered_points": profile.mastered_points,
-            }
-            profile.weak_points = new_weak
-            db.add(ProfileUpdateLog(
-                user_id=user_id,
-                course_id=profile.course_id,
-                old_profile_json=old_json,
-                new_profile_json={
-                    "weak_points": new_weak,
-                    "mastered_points": profile.mastered_points,
-                },
-                evidence=f"答题结果: {exercise.question[:50]}",
-                change_reason=reflection_data.get("change_reason", "练习反馈更新"),
-                updated_by="ReflectionAgent",
-            ))
+    if profile:
+        old_json = {
+            "weak_points": list(profile.weak_points or []),
+            "mastered_points": list(profile.mastered_points or []),
+        }
+
+        if eval_data.get("is_correct"):
+            correct_count = db.query(AnswerRecord).join(Exercise).filter(
+                AnswerRecord.user_id == user_id,
+                Exercise.knowledge_point_id == exercise.knowledge_point_id,
+                AnswerRecord.is_correct == 1,
+            ).count()
+            if correct_count >= 2 and kp_title:
+                new_weak = [w for w in (profile.weak_points or []) if w != kp_title]
+                new_mastered = list(set((profile.mastered_points or []) + [kp_title]))
+                if new_weak != (profile.weak_points or []) or new_mastered != (profile.mastered_points or []):
+                    profile.weak_points = new_weak
+                    profile.mastered_points = new_mastered
+                    reflection_data = {
+                        "change_reason": f"连续答对{correct_count}题，'{kp_title}'从薄弱点升级为已掌握",
+                        "profile_changes": {
+                            "weak_points": {"added": [], "removed": [kp_title]},
+                            "mastered_points": {"added": [kp_title], "removed": []},
+                        },
+                    }
+                    db.add(ProfileUpdateLog(
+                        user_id=user_id,
+                        course_id=profile.course_id,
+                        old_profile_json=old_json,
+                        new_profile_json={"weak_points": new_weak, "mastered_points": new_mastered},
+                        evidence=f"连续答对{correct_count}题: {exercise.question[:50]}",
+                        change_reason=reflection_data["change_reason"],
+                        updated_by="ReflectionAgent",
+                    ))
+        else:
+            reflection_agent = ReflectionAgent(llm=llm)
+            ref_result = reflection_agent.run(
+                evaluation_result={**eval_data, "knowledge_point": kp_title},
+                current_profile=old_json,
+            )
+            if ref_result.success:
+                reflection_data = ref_result.data
+                changes = reflection_data.get("profile_changes", {})
+                weak_changes = changes.get("weak_points", {})
+                new_weak = list(set(
+                    (profile.weak_points or []) +
+                    weak_changes.get("added", []) +
+                    ([kp_title] if kp_title else [])
+                ) - set(weak_changes.get("removed", [])))
+                mastered_changes = changes.get("mastered_points", {})
+                new_mastered = list(set(
+                    (profile.mastered_points or []) +
+                    mastered_changes.get("added", [])
+                ) - set(mastered_changes.get("removed", []) + ([kp_title] if kp_title else [])))
+                profile.weak_points = new_weak
+                profile.mastered_points = new_mastered
+                db.add(ProfileUpdateLog(
+                    user_id=user_id,
+                    course_id=profile.course_id,
+                    old_profile_json=old_json,
+                    new_profile_json={"weak_points": new_weak, "mastered_points": new_mastered},
+                    evidence=f"答题结果: {exercise.question[:50]}",
+                    change_reason=reflection_data.get("change_reason", "练习反馈更新"),
+                    updated_by="ReflectionAgent",
+                ))
 
     db.commit()
     return {
         "evaluation": eval_data,
         "reflection": reflection_data,
         "answer_record_id": record.id,
+        "profile_updated": bool(reflection_data),
     }
