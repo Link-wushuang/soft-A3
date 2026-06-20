@@ -44,6 +44,41 @@
       </div>
     </div>
 
+    <div class="card" style="margin-top:20px">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:8px">
+          <el-icon style="color:var(--ep-primary)"><Upload /></el-icon>
+          <span>课程文档管理</span>
+        </div>
+        <el-upload :action="uploadUrl" :headers="uploadHeaders" :data="{ course_id: 1 }"
+                   name="file" :show-file-list="false" accept=".pdf,.md,.txt,.markdown"
+                   :on-success="onUploadSuccess" :on-error="onUploadError">
+          <el-button type="primary" size="small">
+            <el-icon style="margin-right:4px"><Upload /></el-icon>上传文档
+          </el-button>
+        </el-upload>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div v-if="!documents.length" style="text-align:center;padding:40px;color:var(--ep-text-secondary);font-size:14px">
+          暂无文档，上传 PDF/Markdown/TXT 文件以增强知识库
+        </div>
+        <div v-else>
+          <div v-for="doc in documents" :key="doc.id" class="doc-item">
+            <div class="doc-info">
+              <el-icon :size="18" style="color:var(--ep-primary);flex-shrink:0">
+                <Document />
+              </el-icon>
+              <div>
+                <div class="doc-name">{{ doc.filename }}</div>
+                <div class="doc-meta">{{ doc.content_type.toUpperCase() }} · {{ doc.chunk_count }} 个文本段 · {{ doc.created_at?.slice(0, 10) }}</div>
+              </div>
+            </div>
+            <el-button size="small" link type="danger" @click="deleteDocument(doc.id)">删除</el-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑知识点' : '新增知识点'" width="600px" top="8vh">
       <el-form :model="form" label-width="80px" label-position="top">
         <el-row :gutter="16">
@@ -84,9 +119,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Upload, Document } from '@element-plus/icons-vue'
 import api from '../../api/index'
 
 interface KnowledgePoint {
@@ -115,6 +150,12 @@ const isEdit = ref(false)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
 const tagsInput = ref('')
+
+const documents = ref<any[]>([])
+const uploadUrl = computed(() => `${api.defaults.baseURL}/documents/upload?course_id=1`)
+const uploadHeaders = computed(() => ({
+  Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+}))
 
 const diffLabels: Record<string, string> = { easy: '简单', medium: '中等', hard: '困难' }
 
@@ -217,5 +258,65 @@ async function handleDelete(id: number) {
   }
 }
 
-onMounted(fetchData)
+async function fetchDocuments() {
+  try {
+    const res = await api.get('/documents', { params: { course_id: 1 } })
+    documents.value = res.data
+  } catch { /* ignore */ }
+}
+
+function onUploadSuccess() {
+  ElMessage.success('文档上传成功')
+  fetchDocuments()
+}
+
+function onUploadError() {
+  ElMessage.error('文档上传失败')
+}
+
+async function deleteDocument(id: number) {
+  try {
+    await ElMessageBox.confirm('确定要删除该文档吗？', '确认', { type: 'warning' })
+    await api.delete(`/documents/${id}`)
+    ElMessage.success('删除成功')
+    fetchDocuments()
+  } catch { /* cancelled */ }
+}
+
+onMounted(() => {
+  fetchData()
+  fetchDocuments()
+})
 </script>
+
+<style scoped>
+.doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ep-border-light);
+}
+
+.doc-item:last-child {
+  border-bottom: none;
+}
+
+.doc-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.doc-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ep-text-primary);
+}
+
+.doc-meta {
+  font-size: 12px;
+  color: var(--ep-text-secondary);
+  margin-top: 2px;
+}
+</style>
