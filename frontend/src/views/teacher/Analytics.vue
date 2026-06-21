@@ -1,224 +1,39 @@
 <template>
   <div class="page-container" style="max-width:1400px">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">数据分析</h1>
-        <p class="page-subtitle">全局学习数据概览与趋势分析</p>
-      </div>
-    </div>
-
+    <div class="page-header"><div><h1 class="page-title">数据分析</h1><p class="page-subtitle">全局学习数据概览与趋势分析</p></div><el-button @click="fetchData" :loading="loading" round><el-icon style="margin-right:6px"><Refresh /></el-icon>刷新数据</el-button></div>
     <div v-loading="loading">
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#eff6ff;color:#2563eb">
-            <el-icon :size="22"><User /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ data.total_students }}</div>
-            <div class="stat-label">学生总数</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#ecfdf5;color:#10b981">
-            <el-icon :size="22"><EditPen /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ data.total_answers }}</div>
-            <div class="stat-label">答题总数</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#fffbeb;color:#f59e0b">
-            <el-icon :size="22"><TrendCharts /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ data.overall_correctness_rate }}%</div>
-            <div class="stat-label">整体正确率</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:#f5f3ff;color:#7c3aed">
-            <el-icon :size="22"><Document /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-value">{{ data.total_resources }}</div>
-            <div class="stat-label">资源总数</div>
-          </div>
-        </div>
+        <div class="stat-card"><div class="stat-icon" style="background:#eef2ff;color:#6366f1"><el-icon :size="24"><User /></el-icon></div><div class="stat-info"><div class="stat-value">{{ data.total_students }}</div><div class="stat-label">学生总数</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:#ecfdf5;color:#10b981"><el-icon :size="24"><EditPen /></el-icon></div><div class="stat-info"><div class="stat-value">{{ data.total_answers }}</div><div class="stat-label">答题总数</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:#fffbeb;color:#f59e0b"><el-icon :size="24"><TrendCharts /></el-icon></div><div class="stat-info"><div class="stat-value">{{ data.overall_correctness_rate }}%</div><div class="stat-label">整体正确率</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:#f5f3ff;color:#8b5cf6"><el-icon :size="24"><Document /></el-icon></div><div class="stat-info"><div class="stat-value">{{ data.total_resources }}</div><div class="stat-label">资源总数</div></div></div>
       </div>
-
       <div class="charts-grid">
-        <div class="card">
-          <div class="card-header">薄弱知识点分布</div>
-          <div class="card-body">
-            <div ref="mistakeChartRef" style="height:320px" />
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header">资源类型分布</div>
-          <div class="card-body">
-            <div ref="resourceChartRef" style="height:320px" />
-          </div>
-        </div>
+        <div class="card chart-card"><div class="card-header"><div class="chart-header-left"><div class="chart-dot" style="background:#ef4444" />薄弱知识点分布</div></div><div class="card-body"><div ref="mistakeChartRef" class="chart-box" /></div></div>
+        <div class="card chart-card"><div class="card-header"><div class="chart-header-left"><div class="chart-dot" style="background:#6366f1" />资源类型分布</div></div><div class="card-body"><div ref="resourceChartRef" class="chart-box" /></div></div>
       </div>
-
       <div class="charts-grid" style="margin-top:20px">
-        <div class="card">
-          <div class="card-header">正确率趋势</div>
-          <div class="card-body">
-            <div ref="rateChartRef" style="height:320px" />
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-header" style="display:flex;align-items:center;gap:8px">
-            <el-icon style="color:var(--ep-danger)"><WarningFilled /></el-icon>
-            薄弱知识点列表
-          </div>
-          <div class="card-body">
-            <div v-if="data.weak_points_summary.length" class="weak-list">
-              <div v-for="(wp, i) in data.weak_points_summary" :key="wp" class="weak-item">
-                <span class="weak-num">{{ i + 1 }}</span>
-                <span>{{ wp }}</span>
-              </div>
-            </div>
-            <el-empty v-else description="暂无数据" :image-size="80" />
-          </div>
-        </div>
+        <div class="card chart-card"><div class="card-header"><div class="chart-header-left"><div class="chart-dot" style="background:#10b981" />正确率趋势</div></div><div class="card-body"><div ref="rateChartRef" class="chart-box" /></div></div>
+        <div class="card"><div class="card-header"><div class="chart-header-left"><div class="chart-dot" style="background:#ef4444" />薄弱知识点列表</div></div><div class="card-body"><div v-if="data.weak_points_summary.length" class="weak-list"><div v-for="(wp,i) in data.weak_points_summary" :key="wp" class="weak-item"><span class="weak-rank" :class="i<3?'top':''">{{ i+1 }}</span><span class="weak-text">{{ wp }}</span></div></div><el-empty v-else description="暂无数据" :image-size="80" /></div></div>
       </div>
     </div>
   </div>
 </template>
-
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
-import * as echarts from 'echarts'
-import { ElMessage } from 'element-plus'
-import { User, EditPen, TrendCharts, Document, WarningFilled } from '@element-plus/icons-vue'
-import api from '../../api/index'
-
-interface MistakeTag { tag: string; count: number }
-
-interface TeacherSummary {
-  total_students: number
-  total_answers: number
-  overall_correctness_rate: number
-  total_resources: number
-  resource_type_counts: Record<string, number>
-  top_mistake_tags: MistakeTag[]
-  correctness_rate_trend: Array<{ date: string; correctness_rate: number; total_answers: number }>
-  weak_points_summary: string[]
-}
-
-const loading = ref(false)
-const data = ref<TeacherSummary>({
-  total_students: 0, total_answers: 0, overall_correctness_rate: 0, total_resources: 0,
-  resource_type_counts: {}, top_mistake_tags: [], correctness_rate_trend: [], weak_points_summary: [],
-})
-
-const mistakeChartRef = ref<HTMLElement>()
-const resourceChartRef = ref<HTMLElement>()
-const rateChartRef = ref<HTMLElement>()
-
-function renderMistakeChart() {
-  if (!mistakeChartRef.value) return
-  const chart = echarts.init(mistakeChartRef.value)
-  const tags = data.value.top_mistake_tags
-  chart.setOption({
-    tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.96)', borderColor: '#e2e8f0', textStyle: { color: '#1e293b' } },
-    xAxis: { type: 'category', data: tags.map(t => t.tag), axisLabel: { rotate: 30, fontSize: 11 }, axisLine: { lineStyle: { color: '#e2e8f0' } } },
-    yAxis: { type: 'value', name: '次数', splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLine: { show: false } },
-    series: [{ type: 'bar', data: tags.map(t => t.count), itemStyle: { color: '#ef4444', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 40 }],
-    grid: { left: 50, right: 20, bottom: 60, top: 30 },
-  })
-}
-
-function renderResourceChart() {
-  if (!resourceChartRef.value) return
-  const chart = echarts.init(resourceChartRef.value)
-  const counts = data.value.resource_type_counts
-  const colors = ['#2563eb', '#7c3aed', '#10b981', '#f59e0b', '#ef4444', '#64748b']
-  const pieData = Object.entries(counts).map(([name, value], i) => ({ name, value, itemStyle: { color: colors[i % colors.length] } }))
-  if (!pieData.length) pieData.push({ name: '暂无数据', value: 0, itemStyle: { color: '#e2e8f0' } })
-  chart.setOption({
-    tooltip: { trigger: 'item', backgroundColor: 'rgba(255,255,255,0.96)', borderColor: '#e2e8f0', textStyle: { color: '#1e293b' } },
-    legend: { bottom: 0, textStyle: { fontSize: 11 } },
-    series: [{ type: 'pie', radius: ['45%', '72%'], data: pieData, label: { formatter: '{b}: {c}', fontSize: 11 }, itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 } }],
-  })
-}
-
-function renderRateChart() {
-  if (!rateChartRef.value) return
-  const chart = echarts.init(rateChartRef.value)
-  const trend = data.value.correctness_rate_trend
-  chart.setOption({
-    tooltip: { trigger: 'axis', backgroundColor: 'rgba(255,255,255,0.96)', borderColor: '#e2e8f0', textStyle: { color: '#1e293b' } },
-    xAxis: { type: 'category', data: trend.map(i => i.date), axisLine: { lineStyle: { color: '#e2e8f0' } } },
-    yAxis: { type: 'value', min: 0, max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLine: { show: false } },
-    series: [{ type: 'line', smooth: true, data: trend.map(i => i.correctness_rate), areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(37,99,235,0.15)' }, { offset: 1, color: 'rgba(37,99,235,0)' }]) }, itemStyle: { color: '#2563eb' }, lineStyle: { width: 2 }, symbolSize: 6 }],
-    grid: { left: 50, right: 20, bottom: 40, top: 30 },
-  })
-}
-
-async function fetchData() {
-  loading.value = true
-  try {
-    const res = await api.get('/analytics/teacher-summary')
-    data.value = res.data
-    await nextTick()
-    renderMistakeChart()
-    renderResourceChart()
-    renderRateChart()
-  } catch {
-    ElMessage.error('获取分析数据失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(fetchData)
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'; import * as echarts from 'echarts'; import { ElMessage } from 'element-plus'; import { User, EditPen, TrendCharts, Document, Refresh } from '@element-plus/icons-vue'; import api from '../../api/index'
+interface MT { tag:string;count:number }
+interface TS { total_students:number;total_answers:number;overall_correctness_rate:number;total_resources:number;resource_type_counts:Record<string,number>;top_mistake_tags:MT[];correctness_rate_trend:Array<{date:string;correctness_rate:number;total_answers:number}>;weak_points_summary:string[] }
+const loading=ref(false); const data=ref<TS>({total_students:0,total_answers:0,overall_correctness_rate:0,total_resources:0,resource_type_counts:{},top_mistake_tags:[],correctness_rate_trend:[],weak_points_summary:[]})
+const mistakeChartRef=ref<HTMLElement>(); const resourceChartRef=ref<HTMLElement>(); const rateChartRef=ref<HTMLElement>(); const charts:echarts.ECharts[]=[]
+function disposeCharts(){ charts.forEach(c=>c.dispose()); charts.length=0 }; function onResize(){ charts.forEach(c=>c.resize()) }
+const CC=['#6366f1','#8b5cf6','#10b981','#f59e0b','#ef4444','#64748b']
+function rMC(){ if(!mistakeChartRef.value) return; const c=echarts.init(mistakeChartRef.value); charts.push(c); const t=data.value.top_mistake_tags; c.setOption({tooltip:{trigger:'axis',backgroundColor:'rgba(255,255,255,0.96)',borderColor:'#e2e8f0',textStyle:{color:'#0f172a',fontSize:13},axisPointer:{type:'shadow'}},xAxis:{type:'category',data:t.map(x=>x.tag),axisLabel:{rotate:30,fontSize:11,color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}},axisTick:{show:false}},yAxis:{type:'value',name:'次数',splitLine:{lineStyle:{color:'#f1f5f9',type:'dashed'}},axisLine:{show:false},axisTick:{show:false},nameTextStyle:{color:'#94a3b8',fontSize:11}},series:[{type:'bar',data:t.map((x,i)=>({value:x.count,itemStyle:{color:CC[i%CC.length],borderRadius:[6,6,0,0]}})),barMaxWidth:44}],grid:{left:50,right:20,bottom:60,top:30}}) }
+function rRC(){ if(!resourceChartRef.value) return; const c=echarts.init(resourceChartRef.value); charts.push(c); const tl:Record<string,string>={lecture:'个性化讲解',mindmap:'思维导图',exercise:'练习题',case:'实操案例',extended_reading:'拓展阅读',video_storyboard:'视频分镜'}; const pd=Object.entries(data.value.resource_type_counts).map(([n,v],i)=>({name:tl[n]||n,value:v,itemStyle:{color:CC[i%CC.length],borderRadius:4,borderColor:'#fff',borderWidth:2}})); if(!pd.length) pd.push({name:'暂无数据',value:0,itemStyle:{color:'#e2e8f0',borderRadius:4,borderColor:'#fff',borderWidth:2}}); c.setOption({tooltip:{trigger:'item',backgroundColor:'rgba(255,255,255,0.96)',borderColor:'#e2e8f0',textStyle:{color:'#0f172a',fontSize:13},formatter:'{b}: {c} ({d}%)'},legend:{bottom:0,textStyle:{fontSize:11,color:'#64748b'},itemWidth:8,itemHeight:8,itemGap:16},series:[{type:'pie',radius:['48%','76%'],center:['50%','46%'],data:pd,label:{formatter:'{b}\n{d}%',fontSize:11,color:'#64748b',lineHeight:16}}]}) }
+function rRC2(){ if(!rateChartRef.value) return; const c=echarts.init(rateChartRef.value); charts.push(c); const t=data.value.correctness_rate_trend; c.setOption({tooltip:{trigger:'axis',backgroundColor:'rgba(255,255,255,0.96)',borderColor:'#e2e8f0',textStyle:{color:'#0f172a',fontSize:13}},xAxis:{type:'category',data:t.map(i=>i.date),axisLabel:{fontSize:11,color:'#64748b'},axisLine:{lineStyle:{color:'#e2e8f0'}},axisTick:{show:false}},yAxis:{type:'value',min:0,max:100,axisLabel:{formatter:'{value}%',fontSize:11,color:'#64748b'},splitLine:{lineStyle:{color:'#f1f5f9',type:'dashed'}},axisLine:{show:false},axisTick:{show:false}},series:[{type:'line',smooth:true,data:t.map(i=>i.correctness_rate),areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(99,102,241,0.12)'},{offset:1,color:'rgba(99,102,241,0)'}])},itemStyle:{color:'#6366f1'},lineStyle:{width:2.5,color:'#6366f1'},symbolSize:5,symbol:'circle'}],grid:{left:50,right:20,bottom:40,top:30}}) }
+async function fetchData(){ loading.value=true; try { const r=await api.get('/analytics/teacher-summary'); data.value=r.data; await nextTick(); disposeCharts(); rMC(); rRC(); rRC2() } catch { ElMessage.error('获取分析数据失败') } finally { loading.value=false } }
+onMounted(()=>{ fetchData(); window.addEventListener('resize',onResize) }); onUnmounted(()=>{ window.removeEventListener('resize',onResize); disposeCharts() })
 </script>
-
 <style scoped>
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.charts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.weak-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.weak-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--ep-bg-hover);
-  border-radius: var(--ep-radius-sm);
-  font-size: 14px;
-}
-
-.weak-num {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  background: var(--ep-danger-light);
-  color: var(--ep-danger);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
+.stats-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px; } .charts-grid { display:grid;grid-template-columns:1fr 1fr;gap:20px; } .chart-card { overflow:hidden; } .chart-header-left { display:flex;align-items:center;gap:10px; } .chart-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; } .chart-box { height:320px; }
+.weak-list { display:flex;flex-direction:column;gap:8px; } .weak-item { display:flex;align-items:center;gap:12px;padding:12px 16px;background:#f8fafc;border-radius:var(--ep-radius-md);transition:all var(--ep-transition); } .weak-item:hover { background:white;box-shadow:var(--ep-shadow-xs); } .weak-rank { width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--ep-bg-soft);color:var(--ep-text-muted);flex-shrink:0; } .weak-rank.top { background:var(--ep-danger-light);color:#dc2626; } .weak-text { font-size:14px;color:var(--ep-text-primary);font-weight:500; }
 </style>
