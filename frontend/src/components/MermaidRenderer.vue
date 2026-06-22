@@ -9,15 +9,26 @@ import mermaid from 'mermaid'
 const props = defineProps<{ code: string }>()
 const container = ref<HTMLElement>()
 
-mermaid.initialize({ startOnLoad: false, theme: 'default' })
+mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' })
+
+function cleanCode(raw: string): string {
+  let s = raw.trim()
+  const fenceRe = /^```(?:mermaid)?\s*\n?([\s\S]*?)\n?\s*```$/
+  const m = s.match(fenceRe)
+  if (m) s = m[1].trim()
+  return s
+}
 
 async function render() {
   if (!container.value || !props.code) return
+  const code = cleanCode(props.code)
   try {
-    const { svg } = await mermaid.render('mermaid-' + Date.now(), props.code)
+    const id = 'mermaid-' + Math.random().toString(36).slice(2, 8)
+    const { svg } = await mermaid.render(id, code)
     container.value.innerHTML = svg
-  } catch {
-    container.value.innerHTML = `<pre style="color:var(--ep-text-muted);background:var(--ep-bg);padding:16px;border-radius:10px;font-size:13px;white-space:pre-wrap">${props.code}</pre>`
+  } catch (err) {
+    console.warn('Mermaid render failed:', err)
+    container.value.innerHTML = `<pre style="color:var(--ep-text-muted);background:var(--ep-bg);padding:16px;border-radius:10px;font-size:13px;white-space:pre-wrap">${code}</pre>`
   }
 }
 

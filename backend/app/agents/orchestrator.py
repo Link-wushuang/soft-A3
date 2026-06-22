@@ -17,10 +17,10 @@ from app.services.llm_client import LLMClient, get_llm_client
 RESOURCE_AGENTS = [
     ("lecture", LectureAgent),
     ("mindmap", MindMapAgent),
-    ("exercise", ExerciseAgent),
     ("case", CaseAgent),
-    ("extended_reading", ExtendedReadingAgent),
     ("video_storyboard", VideoStoryboardAgent),
+    ("exercise", ExerciseAgent),
+    ("extended_reading", ExtendedReadingAgent),
 ]
 
 
@@ -45,7 +45,7 @@ class Orchestrator:
 
         for i, (resource_type, agent_cls) in enumerate(RESOURCE_AGENTS):
             if i > 0:
-                time.sleep(2)
+                time.sleep(1)
             result = self._run_agent(
                 agent_cls(self.llm), trace, on_trace,
                 profile=profile, knowledge_context=context,
@@ -66,7 +66,7 @@ class Orchestrator:
 
         for idx, resource in enumerate(resources):
             if idx > 0:
-                time.sleep(2)
+                time.sleep(0.5)
             v_result = self._run_agent(
                 verifier, trace, on_trace,
                 resource=resource, knowledge_context=context,
@@ -76,7 +76,7 @@ class Orchestrator:
                     resource["warnings"].append("factual_inconsistency")
                     resource["confidence"] = "low"
 
-            time.sleep(1)
+            time.sleep(0.3)
             g_result = self._run_agent(
                 guard, trace, on_trace,
                 resource=resource,

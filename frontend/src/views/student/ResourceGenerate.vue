@@ -79,6 +79,7 @@ const traces = ref<any[]>([])
 const resources = ref<any[]>([])
 const activeTab = ref('')
 
+const TYPE_ORDER = ['lecture', 'mindmap', 'case', 'video_storyboard', 'exercise', 'extended_reading']
 const typeLabels: Record<string, string> = {
   lecture: '个性化讲解', mindmap: '思维导图', exercise: '练习题',
   case: '实操案例', extended_reading: '拓展阅读', video_storyboard: '视频分镜',
@@ -88,12 +89,20 @@ const typeIcons: Record<string, string> = {
   case: '💻', extended_reading: '📚', video_storyboard: '🎬',
 }
 
+function sortResources(list: any[]) {
+  return [...list].sort((a, b) => {
+    const ai = TYPE_ORDER.indexOf(a.resource_type)
+    const bi = TYPE_ORDER.indexOf(b.resource_type)
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
+}
+
 onMounted(async () => {
   try {
     const res = await api.get('/resources', { params: { knowledge_point_id: kpId } })
     if (res.data.length) {
-      resources.value = res.data
-      activeTab.value = String(res.data[0].id)
+      resources.value = sortResources(res.data)
+      activeTab.value = String(resources.value[0].id)
     }
   } catch { /* no resources yet */ }
 })
@@ -120,8 +129,8 @@ function pollSSE(tid: number) {
   })
   source.addEventListener('resource_ready', async () => {
     const res = await api.get('/resources', { params: { knowledge_point_id: kpId } })
-    resources.value = res.data
-    if (!activeTab.value && res.data.length) activeTab.value = String(res.data[0].id)
+    resources.value = sortResources(res.data)
+    if (!activeTab.value && resources.value.length) activeTab.value = String(resources.value[0].id)
   })
   source.addEventListener('done', () => {
     source.close()

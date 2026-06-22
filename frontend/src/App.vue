@@ -37,6 +37,7 @@
       </div>
     </aside>
     <main class="main-content"><router-view /></main>
+    <AiAssistant />
   </div>
   <router-view v-else />
 </template>
@@ -46,6 +47,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { Monitor, ChatDotRound, ChatDotSquare, Guide, Document, DataAnalysis, SwitchButton } from '@element-plus/icons-vue'
+import AiAssistant from './components/AiAssistant.vue'
 const route = useRoute(); const router = useRouter(); const auth = useAuthStore()
 const showLayout = computed(() => route.path !== '/login' && route.path !== '/')
 const isTeacher = computed(() => auth.user?.role === 'teacher')
