@@ -58,7 +58,7 @@ def recommendations(course_id: int = Query(1), user: User = Depends(get_current_
             mistake_counts[ex.knowledge_point_id] = mistake_counts.get(ex.knowledge_point_id, 0) + 1
 
     recommended = []
-    all_kps = db.query(KnowledgePoint).filter_by(course_id=course_id).all()
+    all_kps = db.query(KnowledgePoint).filter_by(course_id=course_id).order_by(KnowledgePoint.sort_order).all()
     for kp in all_kps:
         score = 0
         reasons = []
@@ -72,6 +72,9 @@ def recommendations(course_id: int = Query(1), user: User = Depends(get_current_
             if kp.difficulty in ("medium", "hard"):
                 score += 1
                 reasons.append("未掌握的中高难度知识点")
+            else:
+                score += 1
+                reasons.append("未掌握的基础知识点")
         if score > 0:
             recommended.append({
                 "knowledge_point_id": kp.id,

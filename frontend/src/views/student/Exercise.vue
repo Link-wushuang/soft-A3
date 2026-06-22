@@ -123,25 +123,6 @@ async function submitAnswer(exerciseId: number, answer: string) {
 </script>
 
 <style scoped>
-.back-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--ep-radius-sm);
-  border: 1px solid var(--ep-border);
-  background: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--ep-transition);
-  color: var(--ep-text-secondary);
-}
-
-.back-btn:hover {
-  border-color: var(--ep-primary);
-  color: var(--ep-primary);
-}
-
 .exercise-list {
   display: flex;
   flex-direction: column;

@@ -1,322 +1,39 @@
 <template>
   <div class="page-container" style="max-width:1400px">
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">知识点管理</h1>
-        <p class="page-subtitle">管理操作系统课程知识点库</p>
-      </div>
-      <el-button type="primary" @click="openCreate">
-        <el-icon style="margin-right:6px"><Plus /></el-icon>
-        新增知识点
-      </el-button>
-    </div>
-
-    <div class="card">
-      <div class="card-body" style="padding:0">
-        <el-table :data="knowledgePoints" v-loading="loading" style="width:100%"
-                  :header-cell-style="{ background: 'var(--ep-bg-hover)', fontWeight: 600 }">
-          <el-table-column prop="chapter" label="章节" width="200" />
-          <el-table-column prop="title" label="标题" min-width="200">
-            <template #default="{ row }">
-              <span style="font-weight:500">{{ row.title }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="difficulty" label="难度" width="100" align="center">
-            <template #default="{ row }">
-              <el-tag :type="difficultyType(row.difficulty)" size="small" effect="light" round>
-                {{ diffLabels[row.difficulty] || row.difficulty }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="tags" label="标签" min-width="180">
-            <template #default="{ row }">
-              <el-tag v-for="tag in (row.tags || [])" :key="tag" size="small" effect="light" round
-                      style="margin:2px 4px 2px 0">{{ tag }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="160" fixed="right" align="center">
-            <template #default="{ row }">
-              <el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button size="small" link type="danger" @click="handleDelete(row.id)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:20px">
-      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:8px">
-          <el-icon style="color:var(--ep-primary)"><Upload /></el-icon>
-          <span>课程文档管理</span>
-        </div>
-        <el-upload :action="uploadUrl" :headers="uploadHeaders" :data="{ course_id: 1 }"
-                   name="file" :show-file-list="false" accept=".pdf,.md,.txt,.markdown"
-                   :on-success="onUploadSuccess" :on-error="onUploadError">
-          <el-button type="primary" size="small">
-            <el-icon style="margin-right:4px"><Upload /></el-icon>上传文档
-          </el-button>
-        </el-upload>
-      </div>
-      <div class="card-body" style="padding:0">
-        <div v-if="!documents.length" style="text-align:center;padding:40px;color:var(--ep-text-secondary);font-size:14px">
-          暂无文档，上传 PDF/Markdown/TXT 文件以增强知识库
-        </div>
-        <div v-else>
-          <div v-for="doc in documents" :key="doc.id" class="doc-item">
-            <div class="doc-info">
-              <el-icon :size="18" style="color:var(--ep-primary);flex-shrink:0">
-                <Document />
-              </el-icon>
-              <div>
-                <div class="doc-name">{{ doc.filename }}</div>
-                <div class="doc-meta">{{ doc.content_type.toUpperCase() }} · {{ doc.chunk_count }} 个文本段 · {{ doc.created_at?.slice(0, 10) }}</div>
-              </div>
-            </div>
-            <el-button size="small" link type="danger" @click="deleteDocument(doc.id)">删除</el-button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑知识点' : '新增知识点'" width="600px" top="8vh">
-      <el-form :model="form" label-width="80px" label-position="top">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="章节">
-              <el-input v-model="form.chapter" placeholder="如：第一章 操作系统概述" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="难度">
-              <el-select v-model="form.difficulty" style="width:100%">
-                <el-option label="简单" value="easy" />
-                <el-option label="中等" value="medium" />
-                <el-option label="困难" value="hard" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-form-item label="标题">
-          <el-input v-model="form.title" placeholder="知识点标题" />
-        </el-form-item>
-        <el-form-item label="摘要">
-          <el-input v-model="form.summary" type="textarea" :rows="3" placeholder="知识点摘要" />
-        </el-form-item>
-        <el-form-item label="核心内容">
-          <el-input v-model="form.key_content" type="textarea" :rows="3" placeholder="核心内容" />
-        </el-form-item>
-        <el-form-item label="标签">
-          <el-input v-model="tagsInput" placeholder="逗号分隔，如：进程,调度,CPU" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
-      </template>
-    </el-dialog>
+    <div class="page-header"><div><h1 class="page-title">知识点管理</h1><p class="page-subtitle">管理操作系统课程知识点库与课程文档</p></div><el-button type="primary" @click="openCreate" size="large"><el-icon style="margin-right:6px"><Plus /></el-icon>新增知识点</el-button></div>
+    <div class="card kp-card"><div class="card-header"><div class="header-left"><div class="header-icon" style="background:#eef2ff;color:#6366f1"><el-icon :size="16"><Collection /></el-icon></div><span>知识点列表</span></div><span class="header-count" v-if="!loading">{{ knowledgePoints.length }} 个知识点</span></div><div class="card-body" style="padding:0"><el-table :data="knowledgePoints" v-loading="loading" style="width:100%" :header-cell-style="{background:'#f8fafc',fontWeight:600,color:'#64748b',fontSize:'12px',textTransform:'uppercase',letterSpacing:'0.04em'}" row-class-name="kp-row"><el-table-column prop="chapter" label="章节" width="220"><template #default="{row}"><span class="chapter-cell">{{ row.chapter }}</span></template></el-table-column><el-table-column prop="title" label="标题" min-width="220"><template #default="{row}"><span class="title-cell">{{ row.title }}</span></template></el-table-column><el-table-column prop="difficulty" label="难度" width="100" align="center"><template #default="{row}"><span :class="['diff-badge',row.difficulty]">{{ diffLabels[row.difficulty]||row.difficulty }}</span></template></el-table-column><el-table-column prop="tags" label="标签" min-width="200"><template #default="{row}"><div class="tags-cell"><span v-for="tag in (row.tags||[])" :key="tag" class="tag-chip">{{ tag }}</span></div></template></el-table-column><el-table-column label="操作" width="140" fixed="right" align="center"><template #default="{row}"><el-button size="small" link type="primary" @click="openEdit(row)">编辑</el-button><el-button size="small" link type="danger" @click="handleDelete(row.id)">删除</el-button></template></el-table-column></el-table></div></div>
+    <div class="card" style="margin-top:20px"><div class="card-header"><div class="header-left"><div class="header-icon" style="background:#f5f3ff;color:#8b5cf6"><el-icon :size="16"><Upload /></el-icon></div><span>课程文档管理</span></div><el-upload :action="uploadUrl" :headers="uploadHeaders" :data="{course_id:1}" name="file" :show-file-list="false" accept=".pdf,.md,.txt,.markdown" :on-success="onUploadSuccess" :on-error="onUploadError"><el-button type="primary" size="small" :plain="true"><el-icon style="margin-right:4px"><Upload /></el-icon>上传文档</el-button></el-upload></div><div class="card-body" style="padding:0"><div v-if="!documents.length" class="doc-empty"><el-icon :size="32" style="color:#cbd5e1"><FolderOpened /></el-icon><p>暂无文档，上传 PDF / Markdown / TXT 文件以增强知识库</p></div><div v-else><div v-for="doc in documents" :key="doc.id" class="doc-item"><div class="doc-info"><div class="doc-icon-wrap"><el-icon :size="18"><Document /></el-icon></div><div><div class="doc-name">{{ doc.filename }}</div><div class="doc-meta">{{ doc.content_type?.toUpperCase()||'—' }}<span class="meta-sep" />{{ doc.chunk_count||0 }} 个文本段<span class="meta-sep" />{{ doc.created_at?.slice(0,10)||'—' }}</div></div></div><el-button size="small" link type="danger" @click="deleteDocument(doc.id)">删除</el-button></div></div></div></div>
+    <el-dialog v-model="dialogVisible" :title="isEdit?'编辑知识点':'新增知识点'" width="600px" top="8vh"><el-form :model="form" label-width="80px" label-position="top"><el-row :gutter="16"><el-col :span="12"><el-form-item label="章节"><el-input v-model="form.chapter" placeholder="如：第一章 操作系统概述" /></el-form-item></el-col><el-col :span="12"><el-form-item label="难度"><el-select v-model="form.difficulty" style="width:100%"><el-option label="简单" value="easy" /><el-option label="中等" value="medium" /><el-option label="困难" value="hard" /></el-select></el-form-item></el-col></el-row><el-form-item label="标题"><el-input v-model="form.title" placeholder="知识点标题" /></el-form-item><el-form-item label="摘要"><el-input v-model="form.summary" type="textarea" :rows="3" placeholder="知识点摘要" /></el-form-item><el-form-item label="核心内容"><el-input v-model="form.key_content" type="textarea" :rows="3" placeholder="核心内容" /></el-form-item><el-form-item label="标签"><el-input v-model="tagsInput" placeholder="逗号分隔，如：进程,调度,CPU" /></el-form-item></el-form><template #footer><el-button @click="dialogVisible=false" size="large">取消</el-button><el-button type="primary" :loading="saving" @click="handleSave" size="large">保存</el-button></template></el-dialog>
   </div>
 </template>
-
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Upload, Document } from '@element-plus/icons-vue'
-import api from '../../api/index'
-
-interface KnowledgePoint {
-  id: number
-  chapter: string
-  title: string
-  summary: string
-  difficulty: string
-  tags: string[]
-}
-
-interface FormData {
-  course_id: number
-  chapter: string
-  title: string
-  summary: string
-  key_content: string
-  difficulty: string
-  tags: string[]
-}
-
-const knowledgePoints = ref<KnowledgePoint[]>([])
-const loading = ref(false)
-const dialogVisible = ref(false)
-const isEdit = ref(false)
-const editingId = ref<number | null>(null)
-const saving = ref(false)
-const tagsInput = ref('')
-
-const documents = ref<any[]>([])
-const uploadUrl = computed(() => `${api.defaults.baseURL}/documents/upload?course_id=1`)
-const uploadHeaders = computed(() => ({
-  Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-}))
-
-const diffLabels: Record<string, string> = { easy: '简单', medium: '中等', hard: '困难' }
-
-const form = ref<FormData>({
-  course_id: 1,
-  chapter: '',
-  title: '',
-  summary: '',
-  key_content: '',
-  difficulty: 'medium',
-  tags: [],
-})
-
-function difficultyType(d: string) {
-  if (d === 'easy') return 'success'
-  if (d === 'hard') return 'danger'
-  return 'warning'
-}
-
-async function fetchData() {
-  loading.value = true
-  try {
-    const res = await api.get('/courses/1/knowledge-points')
-    knowledgePoints.value = res.data
-  } catch {
-    ElMessage.error('获取知识点列表失败')
-  } finally {
-    loading.value = false
-  }
-}
-
-function resetForm() {
-  form.value = {
-    course_id: 1,
-    chapter: '',
-    title: '',
-    summary: '',
-    key_content: '',
-    difficulty: 'medium',
-    tags: [],
-  }
-  tagsInput.value = ''
-}
-
-function openCreate() {
-  isEdit.value = false
-  editingId.value = null
-  resetForm()
-  dialogVisible.value = true
-}
-
-function openEdit(row: KnowledgePoint) {
-  isEdit.value = true
-  editingId.value = row.id
-  form.value = {
-    course_id: 1,
-    chapter: row.chapter,
-    title: row.title,
-    summary: row.summary,
-    key_content: '',
-    difficulty: row.difficulty,
-    tags: row.tags || [],
-  }
-  tagsInput.value = (row.tags || []).join(',')
-  dialogVisible.value = true
-}
-
-async function handleSave() {
-  if (!form.value.chapter || !form.value.title) {
-    ElMessage.warning('请填写章节和标题')
-    return
-  }
-  form.value.tags = tagsInput.value ? tagsInput.value.split(',').map(t => t.trim()).filter(Boolean) : []
-  saving.value = true
-  try {
-    if (isEdit.value && editingId.value) {
-      await api.put(`/knowledge-points/${editingId.value}`, form.value)
-      ElMessage.success('更新成功')
-    } else {
-      await api.post('/knowledge-points', form.value)
-      ElMessage.success('创建成功')
-    }
-    dialogVisible.value = false
-    await fetchData()
-  } catch {
-    ElMessage.error('保存失败')
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await ElMessageBox.confirm('确定要删除该知识点吗？', '确认', { type: 'warning' })
-    await api.delete(`/knowledge-points/${id}`)
-    ElMessage.success('删除成功')
-    await fetchData()
-  } catch {
-    /* cancelled or error */
-  }
-}
-
-async function fetchDocuments() {
-  try {
-    const res = await api.get('/documents', { params: { course_id: 1 } })
-    documents.value = res.data
-  } catch { /* ignore */ }
-}
-
-function onUploadSuccess() {
-  ElMessage.success('文档上传成功')
-  fetchDocuments()
-}
-
-function onUploadError() {
-  ElMessage.error('文档上传失败')
-}
-
-async function deleteDocument(id: number) {
-  try {
-    await ElMessageBox.confirm('确定要删除该文档吗？', '确认', { type: 'warning' })
-    await api.delete(`/documents/${id}`)
-    ElMessage.success('删除成功')
-    fetchDocuments()
-  } catch { /* cancelled */ }
-}
-
-onMounted(() => {
-  fetchData()
-  fetchDocuments()
-})
+import { ref, computed, onMounted } from 'vue'; import { ElMessage, ElMessageBox } from 'element-plus'; import { Plus, Upload, Document, Collection, FolderOpened } from '@element-plus/icons-vue'; import api from '../../api/index'
+interface KP { id:number;chapter:string;title:string;summary:string;difficulty:string;tags:string[] }
+interface FD { course_id:number;chapter:string;title:string;summary:string;key_content:string;difficulty:string;tags:string[] }
+const knowledgePoints = ref<KP[]>([]); const loading=ref(false); const dialogVisible=ref(false); const isEdit=ref(false); const editingId=ref<number|null>(null); const saving=ref(false); const tagsInput=ref('')
+const documents=ref<any[]>([]); const uploadUrl=computed(()=>`${api.defaults.baseURL}/documents/upload?course_id=1`); const uploadHeaders=computed(()=>({Authorization:`Bearer ${localStorage.getItem('token')||''}`}))
+const diffLabels:Record<string,string>={easy:'简单',medium:'中等',hard:'困难'}
+const form=ref<FD>({course_id:1,chapter:'',title:'',summary:'',key_content:'',difficulty:'medium',tags:[]})
+async function fd() { loading.value=true; try { const r=await api.get('/courses/1/knowledge-points'); knowledgePoints.value=r.data } catch { ElMessage.error('获取知识点列表失败') } finally { loading.value=false } }
+function rf() { form.value={course_id:1,chapter:'',title:'',summary:'',key_content:'',difficulty:'medium',tags:[]}; tagsInput.value='' }
+function openCreate() { isEdit.value=false; editingId.value=null; rf(); dialogVisible.value=true }
+function openEdit(row:KP) { isEdit.value=true; editingId.value=row.id; form.value={course_id:1,chapter:row.chapter,title:row.title,summary:row.summary,key_content:'',difficulty:row.difficulty,tags:row.tags||[]}; tagsInput.value=(row.tags||[]).join(','); dialogVisible.value=true }
+async function handleSave() { if(!form.value.chapter||!form.value.title){ ElMessage.warning('请填写章节和标题'); return }; form.value.tags=tagsInput.value?tagsInput.value.split(',').map(t=>t.trim()).filter(Boolean):[]; saving.value=true
+  try { if(isEdit.value&&editingId.value){ await api.put(`/knowledge-points/${editingId.value}`,form.value); ElMessage.success('更新成功') } else { await api.post('/knowledge-points',form.value); ElMessage.success('创建成功') }; dialogVisible.value=false; await fd() } catch { ElMessage.error('保存失败') } finally { saving.value=false } }
+async function handleDelete(id:number) { try { await ElMessageBox.confirm('确定删除？','确认',{type:'warning'}); await api.delete(`/knowledge-points/${id}`); ElMessage.success('删除成功'); await fd() } catch {} }
+async function fetchDocs() { try { const r=await api.get('/documents',{params:{course_id:1}}); documents.value=r.data } catch {} }
+function onUploadSuccess(){ ElMessage.success('文档上传成功'); fetchDocs() }; function onUploadError(){ ElMessage.error('文档上传失败') }
+async function deleteDocument(id:number){ try { await ElMessageBox.confirm('确定删除？','确认',{type:'warning'}); await api.delete(`/documents/${id}`); ElMessage.success('删除成功'); fetchDocs() } catch {} }
+onMounted(()=>{ fd(); fetchDocs() })
 </script>
-
 <style scoped>
-.doc-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--ep-border-light);
-}
-
-.doc-item:last-child {
-  border-bottom: none;
-}
-
-.doc-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.doc-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--ep-text-primary);
-}
-
-.doc-meta {
-  font-size: 12px;
-  color: var(--ep-text-secondary);
-  margin-top: 2px;
-}
+.header-left { display:flex;align-items:center;gap:10px; } .header-icon { width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center; } .header-count { font-size:12px;color:var(--ep-text-muted);font-weight:500; }
+.kp-card :deep(.kp-row){ transition:background var(--ep-transition); } .kp-card :deep(.kp-row:hover>td){ background:#fafbfc!important; } .kp-card :deep(.kp-row td){ padding:14px 16px!important;border-bottom:1px solid var(--ep-border-light)!important; }
+.chapter-cell { font-size:13px;color:var(--ep-text-secondary); } .title-cell { font-size:14px;font-weight:500;color:var(--ep-text-primary); }
+.diff-badge { display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600; } .diff-badge.easy { background:var(--ep-success-light);color:#059669; } .diff-badge.hard { background:var(--ep-danger-light);color:#dc2626; } .diff-badge.medium { background:var(--ep-warning-light);color:#d97706; }
+.tags-cell { display:flex;flex-wrap:wrap;gap:4px; } .tag-chip { display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500;background:var(--ep-bg-soft);color:var(--ep-text-secondary); }
+.doc-empty { text-align:center;padding:48px 24px;color:var(--ep-text-muted);font-size:14px; } .doc-empty p { margin:12px 0 0; }
+.doc-item { display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--ep-border-light);transition:background var(--ep-transition); } .doc-item:last-child { border-bottom:none; } .doc-item:hover { background:#fafbfc; }
+.doc-info { display:flex;align-items:center;gap:14px; } .doc-icon-wrap { width:38px;height:38px;border-radius:10px;background:var(--ep-bg-soft);color:var(--ep-text-secondary);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.doc-name { font-size:14px;font-weight:500;color:var(--ep-text-primary); } .doc-meta { font-size:12px;color:var(--ep-text-muted);margin-top:3px;display:flex;align-items:center;gap:6px; } .meta-sep { width:3px;height:3px;border-radius:50%;background:#cbd5e1; }
 </style>
