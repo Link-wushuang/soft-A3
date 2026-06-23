@@ -360,12 +360,12 @@ async function fetchData() {
       rawData.value = summaryRes.data
       attentionData.value = attentionRes.data
     }
+    loading.value = false
     await nextTick()
     disposeCharts()
     renderAllCharts()
   } catch {
     ElMessage.error('获取分析数据失败')
-  } finally {
     loading.value = false
   }
 }
