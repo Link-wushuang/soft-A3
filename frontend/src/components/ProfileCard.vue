@@ -13,7 +13,15 @@
           <div class="dim-content">
             <div class="dim-label">{{ dim.label }}</div>
             <div class="dim-value">
-              <template v-if="Array.isArray(profile[dim.key])">
+              <template v-if="dim.key === 'knowledge_state'">
+                <div v-if="knowledgeState" class="ks-block">
+                  <div v-if="knowledgeState.known?.length" class="dim-tags"><span v-for="tag in knowledgeState.known" :key="'k-'+tag" class="dim-tag ks-known">{{ tag }}</span></div>
+                  <div v-if="knowledgeState.unknown?.length" class="dim-tags" style="margin-top:4px"><span v-for="tag in knowledgeState.unknown" :key="'u-'+tag" class="dim-tag ks-unknown">{{ tag }}</span></div>
+                  <span v-if="!knowledgeState.known?.length && !knowledgeState.unknown?.length" class="dim-empty">暂无</span>
+                </div>
+                <span v-else class="dim-empty">{{ dimValue(dim.key) || '暂无' }}</span>
+              </template>
+              <template v-else-if="Array.isArray(profile[dim.key])">
                 <div v-if="profile[dim.key]?.length" class="dim-tags"><span v-for="tag in profile[dim.key]" :key="tag" class="dim-tag">{{ tag }}</span></div>
                 <span v-else class="dim-empty">暂无</span>
               </template>
@@ -32,6 +40,12 @@ import { User, Aim, Reading, WarningFilled, SuccessFilled, Star, View, Timer } f
 const props = defineProps<{ profile: Record<string, any> }>()
 const confidenceLabel = computed(() => { const c = props.profile.confidence; if (c==='high') return '高'; if (c==='medium') return '中'; return '低' })
 
+const knowledgeState = computed(() => {
+  const v = props.profile.knowledge_state
+  if (!v) return null
+  if (typeof v === 'object') return v
+  try { return JSON.parse(v) } catch { return null }
+})
 const LEVEL_MAP: Record<string,string> = { beginner:'初学者', medium:'中等', advanced:'进阶' }
 const STYLE_MAP: Record<string,string> = { visual:'视觉型', verbal:'文字型', hands_on:'实操型' }
 function dimValue(key: string) {
@@ -73,4 +87,6 @@ const dimensions = [
 .dim-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .dim-tag { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 500; background: var(--ep-bg-soft); color: var(--ep-text-secondary); }
 .dim-empty { color: var(--ep-text-muted); font-size: 12px; }
+.ks-known { background: #ecfdf5; color: #059669; }
+.ks-unknown { background: #fef2f2; color: #dc2626; }
 </style>

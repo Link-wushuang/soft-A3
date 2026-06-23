@@ -105,6 +105,16 @@ onMounted(async () => {
       activeTab.value = String(resources.value[0].id)
     }
   } catch { /* no resources yet */ }
+  try {
+    const t = await api.get('/resources/active-task', { params: { knowledge_point_id: kpId } })
+    if (t.data.task_id) {
+      taskId.value = t.data.task_id
+      generating.value = true
+      const traceRes = await api.get(`/agent-tasks/${t.data.task_id}/trace`)
+      traces.value = traceRes.data
+      pollSSE(t.data.task_id)
+    }
+  } catch { /* no active task */ }
 })
 
 async function startGeneration() {

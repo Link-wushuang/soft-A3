@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth'; import { ElMessage } from 'element-plus'; import { User, Promotion } from '@element-plus/icons-vue'
 import ProfileCard from '../../components/ProfileCard.vue'; import MarkdownRenderer from '../../components/MarkdownRenderer.vue'; import api from '../../api/index'
 const auth = useAuthStore(); const input = ref(''); const loading = ref(false); const profile = ref<any>(null)
@@ -34,6 +34,7 @@ const chatHistory = ref<Array<{role:string;content:string}>>([]); const messageA
 const userInitial = computed(() => { const n = auth.user?.display_name||auth.user?.username||'?'; return n.charAt(0).toUpperCase() })
 const hints = ['我在学操作系统，文件系统的链接分配不太会','我想两天内掌握文件系统，喜欢图解和例题','我基础一般，想复习进程同步和死锁','我时间不多，想快速掌握磁盘I/O计算']
 function useHint(h:string) { input.value = h; sendMessage() }
+onMounted(async () => { try { const res = await api.get('/profile/1'); if (res.data && res.data.learning_goal) profile.value = res.data } catch {} })
 function scrollToBottom() { nextTick(() => { if(messageArea.value) messageArea.value.scrollTop = messageArea.value.scrollHeight }) }
 async function sendMessage() { if(!input.value.trim()) return; const m = input.value; chatHistory.value.push({role:'user',content:m}); input.value=''; loading.value=true; scrollToBottom()
   try { const r = await api.post('/profile/dialogue',{course_id:1,message:m}); profile.value=r.data; chatHistory.value.push({role:'assistant',content:r.data.reply||'画像已更新，请查看右侧画像卡片。'}); scrollToBottom() } catch { ElMessage.error('画像提取失败') } finally { loading.value=false } }

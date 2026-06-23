@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -95,6 +96,23 @@ def stream_generation(task_id: int, token: str = Query(...)):
             db.close()
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.get("/active-task")
+def active_task(knowledge_point_id: int = Query(...),
+                user: User = Depends(get_current_user),
+                db: Session = Depends(get_db)):
+    cutoff = datetime.utcnow() - timedelta(minutes=5)
+    task = (
+        db.query(AgentTask)
+        .filter_by(user_id=user.id, task_type="resource_generation", status="running")
+        .filter(AgentTask.created_at >= cutoff)
+        .order_by(AgentTask.created_at.desc())
+        .first()
+    )
+    if not task:
+        return {"task_id": None}
+    return {"task_id": task.id}
 
 
 @router.get("", response_model=list[ResourceResponse])

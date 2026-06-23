@@ -23,7 +23,7 @@ function Copy-CleanDirectory {
         if (-not $relative) { return }
 
         foreach ($dir in $ExcludeDirs) {
-            if ($relative -eq $dir -or $relative.StartsWith("$dir\")) { return }
+            if ($relative -eq $dir -or $relative.StartsWith("$dir\") -or $relative.Contains("\$dir\") -or $relative.EndsWith("\$dir")) { return }
         }
         if (-not $_.PSIsContainer -and ($ExcludeFiles -contains $_.Name)) { return }
         if (-not $_.PSIsContainer -and $_.Extension -in @(".pyc", ".db", ".sqlite3", ".log")) { return }
