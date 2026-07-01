@@ -29,9 +29,15 @@ _CACHE_MAX = 50
 
 
 def _build_auth_url(api_key: str, api_secret: str) -> str:
-    """生成讯飞 TTS WebSocket 鉴权 URL（HMAC-SHA256 签名）。"""
+    """生成讯飞 TTS WebSocket 鉴权 URL（HMAC-SHA256 签名）。
+
+    参考：https://www.xfyun.cn/doc/tts/online_tts/API.html
+    """
+    from urllib.parse import quote
+
     now = datetime.now(timezone.utc)
     date = now.strftime("%a, %d %b %Y %H:%M:%S GMT")
+    # 签名原始串格式严格按文档：host: xxx\ndate: xxx\nGET /v2/tts HTTP/1.1
     signature_origin = f"host: {TTS_HOST}\ndate: {date}\nGET {TTS_PATH} HTTP/1.1"
     signature_sha = hmac.new(
         api_secret.encode("utf-8"),
@@ -44,9 +50,10 @@ def _build_auth_url(api_key: str, api_secret: str) -> str:
         f'headers="host date request-line", signature="{signature}"'
     )
     authorization = base64.b64encode(authorization_origin.encode("utf-8")).decode()
+    # URL 参数需 encode
     return (
         f"wss://{TTS_HOST}{TTS_PATH}"
-        f"?authorization={authorization}&date={date}&host={TTS_HOST}"
+        f"?authorization={quote(authorization)}&date={quote(date)}&host={quote(TTS_HOST)}"
     )
 
 
@@ -60,7 +67,7 @@ def synthesize(text: str, voice: str = "xiaoyan") -> bytes | None:
 
     Args:
         text: 待合成文本（单次上限 8000 字符，超出会被截断）。
-        voice: 发音人，常用值：xiaoyan(小燕/女)、aisjiuxu(男士)、aisxping(小萍/女)。
+        voice: 发音人 vcn，常用值：xiaoyan(小燕/女)、aisjiuxu(男士)、aisxping(小萍/女)。
 
     Returns:
         mp3 音频字节；失败返回 None。
@@ -115,12 +122,13 @@ def synthesize(text: str, voice: str = "xiaoyan") -> bytes | None:
             "common": {"app_id": settings.spark_app_id},
             "business": {
                 "aue": "lame",          # mp3 格式
+                "sfl": 1,               # aue=lame 时必须传 sfl=1
                 "auf": "audio/L16;rate=16000",
-                "voice": voice,
+                "vcn": voice,           # 发音人参数名是 vcn（非 voice）
                 "speed": 50,
                 "volume": 50,
                 "pitch": 50,
-                "tte": "false",
+                "tte": "UTF8",          # 文本编码
             },
             "data": {
                 "status": 2,            # 一次发送全部文本
@@ -135,8 +143,18 @@ def synthesize(text: str, voice: str = "xiaoyan") -> bytes | None:
         on_error=_on_error,
         on_open=_on_open,
     )
-    # 同步阻塞运行，超时 30s
-    ws.run_forever(timeout=30)
+    # 同步阻塞运行，用 ping_timeout 作为超时保护
+    import threading
+    ws_run_thread = threading.Thread(target=ws.run_forever, kwargs={"ping_timeout": 30})
+    ws_run_thread.daemon = True
+    ws_run_thread.start()
+    ws_run_thread.join(timeout=45)  # 最多等 45 秒
+    if ws_run_thread.is_alive():
+        logger.error("TTS websocket timeout after 45s")
+        try:
+            ws.close()
+        except Exception:
+            pass
 
     if not audio_chunks:
         return None
