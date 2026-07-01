@@ -102,7 +102,7 @@ def stream_generation(task_id: int, token: str = Query(...)):
 def active_task(knowledge_point_id: int = Query(...),
                 user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
-    cutoff = datetime.utcnow() - timedelta(minutes=5)
+    cutoff = datetime.utcnow() - timedelta(minutes=30)
     task = (
         db.query(AgentTask)
         .filter_by(user_id=user.id, task_type="resource_generation", status="running")

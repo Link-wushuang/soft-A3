@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, ChatDotRound, EditPen, MagicStick } from '@element-plus/icons-vue'
@@ -78,6 +78,7 @@ const generating = ref(false)
 const traces = ref<any[]>([])
 const resources = ref<any[]>([])
 const activeTab = ref('')
+let eventSource: EventSource | null = null
 
 const TYPE_ORDER = ['lecture', 'mindmap', 'case', 'video_storyboard', 'exercise', 'extended_reading']
 const typeLabels: Record<string, string> = {
@@ -98,13 +99,15 @@ function sortResources(list: any[]) {
 }
 
 onMounted(async () => {
+  // 重新进入页面：先拉取已生成的资源（即使生成未完成，部分资源也已入库）
   try {
     const res = await api.get('/resources', { params: { knowledge_point_id: kpId } })
     if (res.data.length) {
       resources.value = sortResources(res.data)
-      activeTab.value = String(resources.value[0].id)
+      if (!activeTab.value) activeTab.value = String(resources.value[0].id)
     }
   } catch { /* no resources yet */ }
+  // 检查是否有运行中的任务，有则重连 SSE
   try {
     const t = await api.get('/resources/active-task', { params: { knowledge_point_id: kpId } })
     if (t.data.task_id) {
@@ -115,6 +118,14 @@ onMounted(async () => {
       pollSSE(t.data.task_id)
     }
   } catch { /* no active task */ }
+})
+
+onBeforeUnmount(() => {
+  // 组件销毁时关闭 SSE 连接，避免后台泄漏 + 回来后重复连接
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
 })
 
 async function startGeneration() {
@@ -130,26 +141,41 @@ async function startGeneration() {
 }
 
 function pollSSE(tid: number) {
+  // 关闭旧连接（防御性：避免重复连接）
+  if (eventSource) eventSource.close()
   const token = localStorage.getItem('token') || ''
   const source = new EventSource(`/api/resources/generate/${tid}/stream?token=${encodeURIComponent(token)}`)
+  eventSource = source
   source.addEventListener('agent_status', (e: MessageEvent) => {
     const data = JSON.parse(e.data)
     const idx = traces.value.findIndex(t => t.agent_name === data.agent_name)
     if (idx >= 0) { traces.value[idx] = data } else { traces.value.push(data) }
   })
   source.addEventListener('resource_ready', async () => {
+    // 有新资源就绪，立即拉取并刷新展示
     const res = await api.get('/resources', { params: { knowledge_point_id: kpId } })
     resources.value = sortResources(res.data)
     if (!activeTab.value && resources.value.length) activeTab.value = String(resources.value[0].id)
   })
   source.addEventListener('done', () => {
     source.close()
+    eventSource = null
     generating.value = false
     taskId.value = null
+    // 最终再拉一次确保拿到全部资源
+    api.get('/resources', { params: { knowledge_point_id: kpId } }).then(res => {
+      if (res.data.length) {
+        resources.value = sortResources(res.data)
+        if (!activeTab.value) activeTab.value = String(resources.value[0].id)
+      }
+    }).catch(() => {})
   })
   source.addEventListener('error', () => {
     source.close()
-    generating.value = false
+    eventSource = null
+    // SSE 断开不立即设 generating=false，可能是临时网络波动；
+    // onMounted 重新进入时会通过 active-task 判断是否还在运行
+    // 只有明确收到 done 才算真正结束
   })
 }
 </script>
