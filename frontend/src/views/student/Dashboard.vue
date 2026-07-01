@@ -31,10 +31,10 @@
         </div>
         <div :class="['kpi-card','kpi-wide',{'kpi-active':activeKey==='time'}]" @click="activeKey='time'">
           <TimeBudgetCard
-            :daily-budget-minutes="90"
-            :today-minutes="45"
-            :weekly-data="weekData"
-            suggestion="建议聚焦「文件」主题，可多学 45 分钟"
+            :daily-budget-minutes="studyTime.daily_budget_minutes"
+            :today-minutes="studyTime.today_minutes"
+            :weekly-data="studyTime.week_data"
+            :suggestion="studyTime.suggestion"
           />
           <div class="kpi-action" @click.stop="$router.push('/student/study-plan')">制定学习计划 →</div>
         </div>
@@ -105,8 +105,8 @@
 
     <PlanBuilderDrawer
       v-model="showPlanBuilder"
-      :remaining-minutes="45"
-      :topics="mockTopics"
+      :remaining-minutes="Math.max(0, studyTime.daily_budget_minutes - studyTime.today_minutes)"
+      :topics="topicsForPlan"
       @start="handlePlanStart"
     />
 
@@ -137,6 +137,9 @@ import TodayDetail from './details/TodayDetail.vue'
 import api from '../../api/index'
 
 const auth = useAuthStore(); const profile = ref<any>(null); const recommendations = ref<any[]>([]); const allKpTitles = ref<string[]>([])
+// 当前为单课程上下文（course_id=1），后端 /profile/{course_id} 基于登录用户鉴权
+const COURSE_ID = 1
+const studyTime = ref<any>({ today_minutes: 0, daily_budget_minutes: 90, week_data: [], suggestion: '' })
 type DetailKey = 'mastery'|'learned'|'time'|'today'
 const activeKey = ref<DetailKey>('today')
 const detailComponent = computed(() => ({mastery:MasteryDetail,learned:LearnedDetail,time:TimeDetail,today:TodayDetail}[activeKey.value]))
@@ -144,27 +147,45 @@ const showPlanBuilder = ref(false)
 const showFocusMode = ref(false)
 const focusTopics = ref<Array<{id:string;title:string;plannedMinutes:number}>>([])
 
+// 图标映射：根据知识点标题关键词选择
+function iconFor(title: string): string {
+  const t = title || ''
+  if (/进程|线程|调度/.test(t)) return '⚙️'
+  if (/内存|页|虚拟/.test(t)) return '💾'
+  if (/文件|磁盘|I\/O|输入输出/.test(t)) return '📁'
+  if (/同步|死锁|锁|信号/.test(t)) return '🔒'
+  if (/中断|异常|调用/.test(t)) return '⚡'
+  if (/设备|驱动/.test(t)) return '🔌'
+  return '📘'
+}
+
 function handlePlanStart(plan: { selectedIds: string[]; mode: string }) {
   focusTopics.value = plan.selectedIds.map(id => {
-    const t = mockTopics.find(x => x.id === id)
+    const t = topicsForPlan.value.find(x => x.id === id)
     return { id, title: t?.title || id, plannedMinutes: t?.recommendedMinutes || 15 }
   })
   showFocusMode.value = true
 }
 function handleFocusComplete(result: { totalMinutes: number; completedCount: number }) {
   showFocusMode.value = false
-  // TODO: 刷新学习数据 + toast
-  console.log('FocusMode complete:', result)
+  fetchAll()
 }
 function handleFocusExit() { showFocusMode.value = false }
-// TODO: 接入真实学习计划数据
-const mockTopics = [
-  { id:'1', title:'系统调用', category:'操作系统概述', difficulty:'medium' as const, status:'unmastered' as const, recommendedMinutes:22, masteredCount:4, totalCount:10, recommended:true, reason:'画像薄弱点' },
-  { id:'2', title:'中断与异常', category:'操作系统概述', difficulty:'medium' as const, status:'unmastered' as const, recommendedMinutes:18, masteredCount:6, totalCount:10 },
-  { id:'5', title:'上下文切换', category:'进程与线程', difficulty:'medium' as const, status:'unmastered' as const, recommendedMinutes:17, masteredCount:3, totalCount:10, recommended:true, reason:'高频考点' },
-  { id:'3', title:'操作系统结构', category:'操作系统概述', difficulty:'easy' as const, status:'unmastered' as const, recommendedMinutes:14, masteredCount:8, totalCount:10 },
-  { id:'4', title:'线程模型', category:'进程与线程', difficulty:'medium' as const, status:'unmastered' as const, recommendedMinutes:15, masteredCount:5, totalCount:10 },
-]
+
+// 基于真实推荐数据派生学习计划可选主题（替代原硬编码 mockTopics）
+const topicsForPlan = computed(() => recommendations.value.slice(0, 6).map((r: any) => ({
+  id: String(r.knowledge_point_id),
+  title: r.title,
+  category: r.chapter || '推荐主题',
+  difficulty: r.difficulty || 'medium',
+  status: 'unmastered' as const,
+  recommendedMinutes: r.est_minutes || 15,
+  masteredCount: 0,
+  totalCount: 10,
+  recommended: !!r.reasons?.length,
+  reason: r.reasons?.[0] || '推荐学习',
+})))
+
 const loading = ref(true); const error = ref('')
 const totalKpCount = ref(40)
 
@@ -175,21 +196,29 @@ const untouchedPoints = computed(() => {
 })
 const hasChartData = computed(() => (profile.value?.mastered_points?.length||0)>0)
 
-// TODO: 接入真实学习时长数据
-const weekData = [
-  { date:'一', minutes:30 }, { date:'二', minutes:50 }, { date:'三', minutes:40 },
-  { date:'四', minutes:75 }, { date:'五', minutes:60 }, { date:'六', minutes:95 },
-  { date:'日', minutes:45, isToday:true },
-]
-
-function diffLabel(d:string) { if(d==='easy') return '简单'; if(d==='hard') return '困难'; return '中等' }
-// TODO: 接入真实推荐预览数据
-const priorityPreview = [
-  { id:'3', icon:'📁', title:'系统调用', category:'操作系统概述', minutes:22, note:'建议优先' },
-  { id:'4', icon:'⚡', title:'中断与异常', category:'操作系统概述', minutes:15, note:'核心概念' },
-]
+// 基于真实推荐数据派生优先预览（替代原硬编码 priorityPreview）
+const priorityPreview = computed(() => recommendations.value.slice(0, 2).map((r: any) => ({
+  id: String(r.knowledge_point_id),
+  icon: iconFor(r.title),
+  title: r.title,
+  category: r.chapter || '推荐',
+  minutes: r.est_minutes || 15,
+  note: r.reasons?.[0] || '建议优先',
+})))
 const totalEstMinutes = computed(() => recommendations.value.reduce((s:number,r:any)=>s+(r.est_minutes||15),0))
-const insightText = '你已连续学习 5 天，今天优先攻克薄弱点效果更好'
+
+// 基于画像动态生成今日洞察（替代原硬编码 insightText）
+const insightText = computed(() => {
+  const weak = profile.value?.weak_points || []
+  const mastered = profile.value?.mastered_points || []
+  if (weak.length > 0) {
+    return `检测到 ${weak.length} 个薄弱知识点，今日优先攻克「${weak[0]}」效果更好`
+  }
+  if (mastered.length > 0) {
+    return `已掌握 ${mastered.length} 个知识点，建议继续推进下一阶段学习`
+  }
+  return '建议先完成对话建档，系统将为你生成个性化学习建议'
+})
 
 const rankColors = ['#4f46e5','#6366f1','#7c3aed','#8b5cf6','#a78bfa','#818cf8','#a855f7','#c084fc']
 // TODO: 接入真实知识聚类数据
@@ -204,7 +233,15 @@ const knowledgeClusters = [
 // TODO: 接入真实学习进度数据
 const mockProgress: Record<string, number> = { '系统调用':35, '中断与异常':0, '操作系统结构':100, '虚拟机与容器基础':20, '上下文切换':0, '线程模型':60, '进程间通信':0, '临界区问题':0 }
 
-async function fetchAll() { loading.value=true; error.value=''; try { const id=auth.user?.id; if(id){ const r=await api.get(`/profile/${id}`); profile.value=r.data } } catch { error.value='画像数据加载失败' }; try { const r=await api.get('/analytics/recommendations'); recommendations.value=(r.data.recommended||[]).map((x:any,i:number)=>({...x,priority:x.priority||Math.max(1,5-i),est_minutes:x.est_minutes||10+Math.floor(Math.random()*15),progress:mockProgress[x.title]??0})) } catch { if(!error.value) error.value='推荐数据加载失败' }; try { const r=await api.get('/courses/1/knowledge-points'); allKpTitles.value=(r.data||[]).map((k:any)=>k.title) } catch {}; loading.value=false }
+async function fetchAll() {
+  loading.value=true; error.value=''
+  // 画像查询：后端 GET /profile/{course_id} 基于登录用户鉴权，参数应为 course_id 而非 user_id
+  try { const r=await api.get(`/profile/${COURSE_ID}`); profile.value=r.data } catch { error.value='画像数据加载失败' }
+  try { const r=await api.get('/analytics/recommendations'); recommendations.value=(r.data.recommended||[]).map((x:any,i:number)=>({...x,priority:x.priority||Math.max(1,5-i),est_minutes:x.est_minutes||10+Math.floor(Math.random()*15),progress:mockProgress[x.title]??0})) } catch { if(!error.value) error.value='推荐数据加载失败' }
+  try { const r=await api.get('/analytics/study-time', { params: { course_id: COURSE_ID } }); studyTime.value=r.data } catch { /* 学习时长可选，失败用默认 */ }
+  try { const r=await api.get(`/courses/${COURSE_ID}/knowledge-points`); allKpTitles.value=(r.data||[]).map((k:any)=>k.title) } catch {}
+  loading.value=false
+}
 onMounted(fetchAll)
 </script>
 

@@ -25,18 +25,20 @@ EduPath Agent 使用多智能体协作完成“画像、检索、规划、生成
 
 ## 3. 编排流程
 
+系统采用**中心化编排（Orchestrator pattern）+ 角色分工**的多智能体协同模式：`Orchestrator` 作为中心调度器，按学习闭环阶段依次调用各专职 Agent，资源生成阶段与验证阶段内部采用 `ThreadPoolExecutor` 并行执行以降低端到端延迟。除中心化编排外，`ReflectionAgent` 与 `PathPlannerAgent` 之间存在**自主触发链**——反思导致画像薄弱点变化时主动触发路径重规划，形成 Agent 间的协同闭环。
+
 ```mermaid
 flowchart TD
   A["Student request"] --> B["ProfileAgent / KnowledgeAgent"]
   B --> C["PathPlannerAgent"]
-  C --> D["Resource Agents x6"]
+  C --> D["Resource Agents x6 并行"]
   D --> E["VerifierAgent"]
   E --> F["ContentGuardAgent"]
   F --> G["Persist resources and trace"]
   G --> H["Student UI"]
   H --> I["EvaluationAgent"]
   I --> J["ReflectionAgent"]
-  J --> A
+  J -->|"薄弱点变化触发重规划"| C
 ```
 
 资源生成任务通过 `AgentTask` 记录整体状态，通过 `AgentTrace` 记录每个智能体的输入摘要、输出摘要、耗时、状态、warning 和置信度。前端资源页展示这些轨迹，避免“黑盒生成”。

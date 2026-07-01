@@ -49,7 +49,7 @@ import { useAuthStore } from './stores/auth'
 import { Monitor, ChatDotRound, ChatDotSquare, Guide, Document, DataAnalysis, SwitchButton } from '@element-plus/icons-vue'
 import AiAssistant from './components/AiAssistant.vue'
 const route = useRoute(); const router = useRouter(); const auth = useAuthStore()
-const showLayout = computed(() => route.path !== '/login' && route.path !== '/')
+const showLayout = computed(() => route.path !== '/login' && route.path !== '/home' && route.path !== '/')
 const isTeacher = computed(() => auth.user?.role === 'teacher')
 const userInitial = computed(() => { const n = auth.user?.display_name || auth.user?.username || '?'; return n.charAt(0).toUpperCase() })
 function handleLogout() { auth.logout(); router.push('/login') }

@@ -157,14 +157,14 @@ HTTP 请求
     → PathPlannerAgent 规划个性化学习路径
       → 用户选择知识点
         → KnowledgeAgent 检索课程知识库
-          → 5个资源 Agent 并行生成内容
-            → VerifierAgent 事实一致性验证
-              → ContentGuardAgent 安全过滤
+          → 6个资源 Agent 并行生成内容（ThreadPoolExecutor 并发执行）
+            → VerifierAgent 事实一致性验证（与 ContentGuard 并行）
+              → ContentGuardAgent 安全过滤（与 Verifier 并行）
                 → 资源持久化 + SSE 推送前端
                   → 用户学习 + 练习
                     → EvaluationAgent 评分 + 错因分析
                       → ReflectionAgent 反思 + 画像更新
-                        → 触发补救资源推送（回到路径规划）
+                        → 画像薄弱点变化时触发 PathPlannerAgent 重新规划学习路径（回到路径规划）
 ```
 
 ## 5. 技术选型理由

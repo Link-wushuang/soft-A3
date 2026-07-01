@@ -12,8 +12,8 @@
           <p class="brand-desc">基于大模型的多智能体协同系统，通过对话式画像、个性化路径规划和多模态资源生成，为你打造真正适配的学习体验。</p>
           <div class="feature-list">
             <div class="feature-item"><div class="feature-dot" /><span>8 维对话式学习画像，实时动态更新</span></div>
-            <div class="feature-item"><div class="feature-dot" /><span>14 个专业 Agent 协同，生成 6 类学习资源</span></div>
-            <div class="feature-item"><div class="feature-dot" /><span>练习自动评估 → 画像反思 → 补救推荐闭环</span></div>
+            <div class="feature-item"><div class="feature-dot" /><span>14 个智能体协同，6 类资源并行生成</span></div>
+            <div class="feature-item"><div class="feature-dot" /><span>练习评估 → 画像反思 → 路径重规划闭环</span></div>
           </div>
         </div>
         <div class="brand-footer"><span>Powered by Multi-Agent System &amp; LLM</span><span class="footer-dot" /><span>操作系统课程知识库</span></div>

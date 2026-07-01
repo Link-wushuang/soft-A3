@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 const routes = [
+  { path: '/home', name: 'Home', component: () => import('../views/HomeView.vue') },
   { path: '/login', name: 'Login', component: () => import('../views/Login.vue') },
   { path: '/student/dashboard', name: 'Dashboard', component: () => import('../views/student/Dashboard.vue') },
   { path: '/student/profile-chat', name: 'ProfileChat', component: () => import('../views/student/ProfileChat.vue') },
@@ -16,14 +17,16 @@ const routes = [
   { path: '/student/tutor', name: 'GeneralTutor', component: () => import('../views/student/GeneralTutor.vue') },
   { path: '/teacher/knowledge', name: 'TeacherKnowledge', component: () => import('../views/teacher/KnowledgeManage.vue') },
   { path: '/teacher/analytics', name: 'TeacherAnalytics', component: () => import('../views/teacher/Analytics.vue') },
-  { path: '/', redirect: '/login' },
+  { path: '/', redirect: '/home' },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
 
+// 仅 /home 与 /login 为公开页面，其余需登录
+const PUBLIC_PATHS = ['/home', '/login']
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token')
-  if (to.path !== '/login' && !token) next('/login')
+  if (!PUBLIC_PATHS.includes(to.path) && !token) next('/login')
   else next()
 })
 

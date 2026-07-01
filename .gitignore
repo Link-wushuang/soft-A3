@@ -13,6 +13,10 @@ dist/
 *.egg-info/
 submission_package/
 .claude/
+.workbuddy/
+
+# 参考资料（大体积，不入库）
+资料/
 
 # Textbook PDF (large, copyrighted)
 *.pdf

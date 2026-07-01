@@ -53,7 +53,7 @@
             </svg>
             <h3 style="margin:0 0 8px;font-size:18px">准备生成学习资源</h3>
             <p style="color:var(--ep-text-secondary);margin:0;font-size:14px">
-              点击「开始生成」，14个智能体将协同为你生成个性化资源
+              点击「开始生成」，6 类资源智能体将并行协同生成，经知识与安全智能体校验
             </p>
           </div>
         </div>

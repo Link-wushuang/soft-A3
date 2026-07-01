@@ -15,7 +15,7 @@
               <div class="msg-bubble"><MarkdownRenderer v-if="msg.role==='assistant'" :content="msg.content" /><p v-else>{{ msg.content }}</p></div>
               <div class="msg-avatar user-avatar" v-if="msg.role==='user'">{{ userInitial }}</div>
             </div>
-            <div v-if="loading" class="msg-row assistant"><div class="msg-avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="url(#ai-grad)"/><path d="M7 8.5L12 5L17 8.5V15.5L12 19L7 15.5V8.5Z" stroke="white" stroke-width="1.2" fill="none"/><circle cx="12" cy="12" r="2" fill="white"/></svg></div><div class="msg-bubble typing"><span class="dot" /><span class="dot" /><span class="dot" /></div></div>
+            <div v-if="loading && !isStreaming" class="msg-row assistant"><div class="msg-avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="url(#ai-grad)"/><path d="M7 8.5L12 5L17 8.5V15.5L12 19L7 15.5V8.5Z" stroke="white" stroke-width="1.2" fill="none"/><circle cx="12" cy="12" r="2" fill="white"/></svg></div><div class="msg-bubble typing"><span class="dot" /><span class="dot" /><span class="dot" /></div></div>
           </div>
           <div class="chat-input-area"><div class="input-wrap"><el-input v-model="input" placeholder="描述你的学习情况..." :rows="2" type="textarea" @keydown.ctrl.enter="sendMessage" resize="none" /><el-button type="primary" :loading="loading" :disabled="!input.trim()" @click="sendMessage" class="send-btn"><el-icon :size="18"><Promotion /></el-icon></el-button></div></div>
         </div>
@@ -28,16 +28,65 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { useAuthStore } from '../../stores/auth'; import { ElMessage } from 'element-plus'; import { User, Promotion } from '@element-plus/icons-vue'
-import ProfileCard from '../../components/ProfileCard.vue'; import MarkdownRenderer from '../../components/MarkdownRenderer.vue'; import api from '../../api/index'
+import ProfileCard from '../../components/ProfileCard.vue'; import MarkdownRenderer from '../../components/MarkdownRenderer.vue'; import api from '../../api/index'; import { createSSE } from '../../api/sse'
 const auth = useAuthStore(); const input = ref(''); const loading = ref(false); const profile = ref<any>(null)
 const chatHistory = ref<Array<{role:string;content:string}>>([]); const messageArea = ref<HTMLElement>()
+const isStreaming = ref(false)
+// 当前为单课程上下文（course_id=1）
+const COURSE_ID = 1
 const userInitial = computed(() => { const n = auth.user?.display_name||auth.user?.username||'?'; return n.charAt(0).toUpperCase() })
 const hints = ['我在学操作系统，文件系统的链接分配不太会','我想两天内掌握文件系统，喜欢图解和例题','我基础一般，想复习进程同步和死锁','我时间不多，想快速掌握磁盘I/O计算']
 function useHint(h:string) { input.value = h; sendMessage() }
-onMounted(async () => { try { const res = await api.get('/profile/1'); if (res.data && res.data.learning_goal) profile.value = res.data } catch {} })
+onMounted(async () => { try { const res = await api.get(`/profile/${COURSE_ID}`); if (res.data && res.data.learning_goal) profile.value = res.data } catch {} })
 function scrollToBottom() { nextTick(() => { if(messageArea.value) messageArea.value.scrollTop = messageArea.value.scrollHeight }) }
-async function sendMessage() { if(!input.value.trim()) return; const m = input.value; chatHistory.value.push({role:'user',content:m}); input.value=''; loading.value=true; scrollToBottom()
-  try { const r = await api.post('/profile/dialogue',{course_id:1,message:m}); profile.value=r.data; chatHistory.value.push({role:'assistant',content:r.data.reply||'画像已更新，请查看右侧画像卡片。'}); scrollToBottom() } catch { ElMessage.error('画像提取失败') } finally { loading.value=false } }
+async function sendMessage() {
+  if(!input.value.trim()) return
+  const m = input.value
+  chatHistory.value.push({role:'user',content:m})
+  input.value=''
+  loading.value=true
+  scrollToBottom()
+  // 流式回复：预先插入空 assistant 消息，逐 token 追加
+  const assistantMsg: {role:string;content:string} = {role:'assistant',content:''}
+  chatHistory.value.push(assistantMsg)
+  isStreaming.value = true
+  scrollToBottom()
+  try {
+    const params = new URLSearchParams({ course_id: String(COURSE_ID), message: m })
+    createSSE(
+      `/api/profile/dialogue/stream?${params.toString()}`,
+      (event) => {
+        const data = event.data ? JSON.parse(event.data) : {}
+        if (event.type === 'token') {
+          assistantMsg.content += data.text || ''
+          scrollToBottom()
+        } else if (event.type === 'profile_ready') {
+          profile.value = data
+        } else if (event.type === 'error') {
+          ElMessage.error(data.message || '画像提取失败')
+        }
+      },
+      () => {
+        if (!assistantMsg.content) {
+          assistantMsg.content = '画像已更新，请查看右侧画像卡片。'
+        }
+        isStreaming.value = false
+        loading.value = false
+        scrollToBottom()
+      }
+    )
+  } catch {
+    chatHistory.value.pop()
+    isStreaming.value = false
+    try {
+      const r = await api.post('/profile/dialogue',{course_id:COURSE_ID,message:m})
+      profile.value=r.data
+      chatHistory.value.push({role:'assistant',content:r.data.reply||'画像已更新，请查看右侧画像卡片。'})
+      scrollToBottom()
+    } catch { ElMessage.error('画像提取失败') }
+    finally { loading.value=false }
+  }
+}
 </script>
 
 <style scoped>

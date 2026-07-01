@@ -82,6 +82,75 @@ def student_summary(course_id: int = 1, period: str = Query("all"),
     }
 
 
+@router.get("/study-time")
+def study_time(course_id: int = Query(1),
+               user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
+    """返回近 7 天每日学习时长（分钟）与今日已学时长。
+
+    学习时长由答题记录与资源生成记录的活动时间估算：每次答题计 5 分钟，
+    每次资源生成计 15 分钟。今日聚焦建议基于画像薄弱点生成。
+    """
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago = today - timedelta(days=6)
+
+    answer_records = (
+        db.query(AnswerRecord)
+        .filter(AnswerRecord.user_id == user.id, AnswerRecord.created_at >= week_ago)
+        .all()
+    )
+    resource_records = (
+        db.query(GeneratedResource)
+        .filter(GeneratedResource.user_id == user.id, GeneratedResource.created_at >= week_ago)
+        .all()
+    )
+
+    weekday_map = ["一", "二", "三", "四", "五", "六", "日"]
+    daily_minutes: dict = {}
+    for offset in range(7):
+        day = week_ago + timedelta(days=offset)
+        daily_minutes[day.date()] = 0
+
+    for r in answer_records:
+        if r.created_at:
+            d = r.created_at.date()
+            if d in daily_minutes:
+                daily_minutes[d] += 5
+    for r in resource_records:
+        if r.created_at:
+            d = r.created_at.date()
+            if d in daily_minutes:
+                daily_minutes[d] += 15
+
+    today_minutes = daily_minutes.get(today.date(), 0)
+    week_data = []
+    sorted_days = sorted(daily_minutes.keys())
+    for d in sorted_days:
+        idx = d.weekday()
+        week_data.append({
+            "date": weekday_map[idx],
+            "minutes": daily_minutes[d],
+            "isToday": d == today.date(),
+        })
+
+    # 基于画像薄弱点生成今日聚焦建议
+    profile = db.query(StudentProfile).filter_by(user_id=user.id, course_id=course_id).first()
+    suggestion = ""
+    if profile and profile.weak_points:
+        focus_topic = profile.weak_points[0]
+        remaining = max(0, 90 - today_minutes)
+        suggestion = f"建议聚焦「{focus_topic}」主题，今日还可学 {remaining} 分钟"
+    else:
+        suggestion = "暂无薄弱点，建议预习新知识点"
+
+    return {
+        "today_minutes": today_minutes,
+        "daily_budget_minutes": 90,
+        "week_data": week_data,
+        "suggestion": suggestion,
+    }
+
+
 @router.get("/recommendations")
 def recommendations(course_id: int = Query(1), period: str = Query("all"),
                     start_date: Optional[str] = Query(None), end_date: Optional[str] = Query(None),

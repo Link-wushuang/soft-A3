@@ -5,6 +5,8 @@ export function createSSE(url: string, onEvent: (event: MessageEvent) => void, o
 
   source.addEventListener('agent_status', onEvent)
   source.addEventListener('resource_ready', onEvent)
+  source.addEventListener('profile_ready', onEvent)
+  source.addEventListener('token', onEvent)
   source.addEventListener('done', (e) => {
     onEvent(e)
     source.close()
