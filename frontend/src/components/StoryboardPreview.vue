@@ -25,6 +25,12 @@
         <span class="anim-dot" /><span>{{ currentScene.animation }}</span>
       </div>
 
+      <!-- Voice status badge -->
+      <div v-if="voiceBadge" class="voice-badge" :class="voiceBadge.type">
+        <span class="voice-icon">{{ voiceBadge.icon }}</span>
+        <span>{{ voiceBadge.text }}</span>
+      </div>
+
       <!-- Play/pause flash -->
       <transition name="fade-quick">
         <div v-if="showIcon" class="center-icon">
@@ -33,6 +39,9 @@
         </div>
       </transition>
     </div>
+
+    <!-- 隐藏音频元素，用于播放讯飞 TTS 合成的 mp3 -->
+    <audio ref="audioEl" />
 
     <!-- Player chrome -->
     <div class="chrome">
@@ -70,7 +79,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import api from '../api/index'
 
 interface Scene { scene_id: number; duration_sec: number; visual: string; narration: string; animation?: string }
 const props = defineProps<{ scenes: Scene[] }>()
@@ -82,6 +92,7 @@ const showIcon = ref(false)
 const elapsed = ref(0)
 const playerRef = ref<HTMLElement>()
 const trackRef = ref<HTMLElement>()
+const audioEl = ref<HTMLAudioElement>()
 let timer: ReturnType<typeof setInterval> | null = null
 let iconTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -119,6 +130,126 @@ const progress = computed(() => {
 
 function fmtTime(s: number) { const m = Math.floor(s / 60); return `${m}:${Math.floor(s % 60).toString().padStart(2, '0')}` }
 
+/* ============ TTS 语音旁白 ============ */
+// 讯飞 TTS 可用性：null=未探测, true=可用, false=不可用
+const ttsAvailable = ref<boolean | null>(null)
+// 已合成的音频缓存：scene_id -> blob URL，避免重复请求
+const audioCache = ref<Map<number, string>>(new Map())
+// 当前场景语音的播放模式：'tts' | 'browser' | 'none'
+const voiceMode = ref<'tts' | 'browser' | 'none'>('none')
+// 语音状态徽章（右上角）
+const voiceBadge = computed(() => {
+  if (voiceMode.value === 'tts') return { type: 'ok', icon: '🔊', text: '讯飞语音' }
+  if (voiceMode.value === 'browser') return { type: 'fallback', icon: '🗣️', text: '浏览器朗读' }
+  return null
+})
+
+onMounted(async () => {
+  // 探测后端 TTS 是否可用
+  try {
+    const r = await api.get('/tts/available')
+    ttsAvailable.value = r.data.available === true
+  } catch {
+    ttsAvailable.value = false
+  }
+})
+
+/** 为指定场景获取或合成语音，返回播放模式 */
+async function prepareVoice(sceneIdx: number): Promise<'tts' | 'browser' | 'none'> {
+  const scene = props.scenes[sceneIdx]
+  if (!scene?.narration) return 'none'
+
+  // 优先用讯飞 TTS
+  if (ttsAvailable.value === true) {
+    // 命中缓存直接用
+    if (audioCache.value.has(scene.scene_id)) {
+      const url = audioCache.value.get(scene.scene_id)!
+      if (audioEl.value) {
+        audioEl.value.src = url
+        audioEl.value.currentTime = 0
+      }
+      return 'tts'
+    }
+    try {
+      const r = await api.post('/tts/synthesize', { text: scene.narration })
+      if (r.data.available && r.data.audio_base64) {
+        const blob = base64ToBlob(r.data.audio_base64, 'audio/mp3')
+        const url = URL.createObjectURL(blob)
+        audioCache.value.set(scene.scene_id, url)
+        if (audioEl.value) {
+          audioEl.value.src = url
+          audioEl.value.currentTime = 0
+        }
+        return 'tts'
+      }
+    } catch {
+      // TTS 请求失败，降级
+    }
+  }
+
+  // 降级到浏览器 Web Speech API
+  if ('speechSynthesis' in window) {
+    return 'browser'
+  }
+  return 'none'
+}
+
+function base64ToBlob(b64: string, mime: string): Blob {
+  const bytes = atob(b64)
+  const arr = new Uint8Array(bytes.length)
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i)
+  return new Blob([arr], { type: mime })
+}
+
+/** 开始播放当前场景的语音 */
+async function startVoice() {
+  const mode = await prepareVoice(currentIndex.value)
+  voiceMode.value = mode
+  if (mode === 'tts' && audioEl.value) {
+    audioEl.value.onended = () => onVoiceEnded()
+    audioEl.value.play().catch(() => {})
+  } else if (mode === 'browser') {
+    speakBrowser(currentScene.value?.narration || '')
+  }
+}
+
+/** 停止所有语音 */
+function stopVoice() {
+  if (audioEl.value) {
+    audioEl.value.pause()
+    audioEl.value.onended = null
+  }
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+  }
+  voiceMode.value = 'none'
+}
+
+/** 浏览器朗读 */
+function speakBrowser(text: string) {
+  if (!('speechSynthesis' in window)) return
+  window.speechSynthesis.cancel()
+  const utter = new SpeechSynthesisUtterance(text)
+  utter.lang = 'zh-CN'
+  utter.rate = 0.95
+  // 尝试选中文语音
+  const voices = window.speechSynthesis.getVoices()
+  const zhVoice = voices.find(v => v.lang.startsWith('zh'))
+  if (zhVoice) utter.voice = zhVoice
+  utter.onend = () => onVoiceEnded()
+  window.speechSynthesis.speak(utter)
+}
+
+/** 语音播放结束：切到下一场景或结束 */
+function onVoiceEnded() {
+  if (currentIndex.value < props.scenes.length - 1) {
+    next()
+  } else {
+    pause()
+  }
+}
+
+/* ============ 播放控制 ============ */
 function togglePlay() {
   playing.value ? pause() : play()
   showIcon.value = true
@@ -126,23 +257,53 @@ function togglePlay() {
   iconTimer = setTimeout(() => { showIcon.value = false }, 500)
 }
 
-function play() { playing.value = true; elapsed.value = 0; tick() }
-function pause() { playing.value = false; if (timer) { clearInterval(timer); timer = null } }
+function play() {
+  playing.value = true
+  elapsed.value = 0
+  // 启动语音旁白 + 计时兜底
+  startVoice()
+  tick()
+}
+
+function pause() {
+  playing.value = false
+  if (timer) { clearInterval(timer); timer = null }
+  stopVoice()
+}
 
 function tick() {
   if (timer) clearInterval(timer)
   timer = setInterval(() => {
     elapsed.value += 0.1
     const dur = currentScene.value?.duration_sec || 5
-    if (elapsed.value >= dur) {
+    // 语音模式下，由 onVoiceEnded 驱动切换，计时只更新进度条
+    // 非语音模式（none），计时到 duration_sec 自动切换
+    if (voiceMode.value === 'none' && elapsed.value >= dur) {
       if (currentIndex.value < props.scenes.length - 1) { currentIndex.value++; elapsed.value = 0 }
       else { pause(); elapsed.value = dur }
     }
   }, 100)
 }
 
-function prev() { if (currentIndex.value > 0) { currentIndex.value--; elapsed.value = 0; if (playing.value) tick() } }
-function next() { if (currentIndex.value < props.scenes.length - 1) { currentIndex.value++; elapsed.value = 0; if (playing.value) tick() } else pause() }
+function prev() {
+  if (currentIndex.value > 0) {
+    stopVoice()
+    currentIndex.value--
+    elapsed.value = 0
+    if (playing.value) { startVoice(); tick() }
+  }
+}
+
+function next() {
+  if (currentIndex.value < props.scenes.length - 1) {
+    stopVoice()
+    currentIndex.value++
+    elapsed.value = 0
+    if (playing.value) { startVoice(); tick() }
+  } else {
+    pause()
+  }
+}
 
 function startSeek(e: MouseEvent) {
   seekFromEvent(e)
@@ -159,7 +320,14 @@ function seekFromEvent(e: MouseEvent) {
   const target = pct * totalDur.value
   let acc = 0
   for (let i = 0; i < props.scenes.length; i++) {
-    if (acc + props.scenes[i].duration_sec > target) { currentIndex.value = i; elapsed.value = target - acc; if (playing.value) tick(); return }
+    if (acc + props.scenes[i].duration_sec > target) {
+      const wasPlaying = playing.value
+      stopVoice()
+      currentIndex.value = i
+      elapsed.value = target - acc
+      if (wasPlaying) { startVoice(); tick() }
+      return
+    }
     acc += props.scenes[i].duration_sec
   }
 }
@@ -170,8 +338,21 @@ function toggleFs() {
   else { document.exitFullscreen?.(); isFullscreen.value = false }
 }
 
-watch(() => props.scenes, () => { currentIndex.value = 0; elapsed.value = 0; pause() })
-onBeforeUnmount(() => { if (timer) clearInterval(timer); if (iconTimer) clearTimeout(iconTimer) })
+watch(() => props.scenes, () => {
+  // 场景列表变化时清理音频缓存
+  audioCache.value.forEach(url => URL.revokeObjectURL(url))
+  audioCache.value.clear()
+  currentIndex.value = 0
+  elapsed.value = 0
+  pause()
+})
+
+onBeforeUnmount(() => {
+  if (timer) clearInterval(timer)
+  if (iconTimer) clearTimeout(iconTimer)
+  stopVoice()
+  audioCache.value.forEach(url => URL.revokeObjectURL(url))
+})
 </script>
 
 <style scoped>
@@ -210,6 +391,12 @@ onBeforeUnmount(() => { if (timer) clearInterval(timer); if (iconTimer) clearTim
 .anim-pill { position: absolute; top: 12px; right: 12px; z-index: 3; display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); font-size: 11px; color: rgba(255,255,255,0.85); }
 .anim-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse 1.4s infinite; }
 @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.6); } }
+
+/* Voice status badge */
+.voice-badge { position: absolute; top: 12px; left: 12px; z-index: 3; display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 16px; backdrop-filter: blur(6px); font-size: 10px; font-weight: 500; }
+.voice-badge.ok { background: rgba(16,185,129,0.2); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+.voice-badge.fallback { background: rgba(245,158,11,0.2); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+.voice-icon { font-size: 11px; }
 
 .center-icon { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); }
 .fade-quick-enter-active, .fade-quick-leave-active { transition: opacity 0.2s; }

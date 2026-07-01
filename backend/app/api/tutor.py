@@ -1,15 +1,18 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.agents.tutor_agent import TutorAgent
 from app.core.deps import get_current_user
+from app.core.security import decode_token
 from app.db.session import get_db
 from app.models.course import KnowledgePoint
 from app.models.profile import StudentProfile
 from app.models.user import User
+from app.services.llm_client import get_llm_client
 
 router = APIRouter(prefix="/tutor", tags=["tutor"])
 
@@ -111,3 +114,64 @@ def assistant_chat(
 
     answer = llm.chat(messages)
     return {"answer": answer}
+
+
+@router.get("/chat/stream")
+def assistant_chat_stream(
+    question: str = Query(...),
+    knowledge_point_id: int | None = Query(None),
+    token: str = Query(...),
+):
+    """SSE 流式答疑接口。
+
+    用 SparkLLM.stream() 真·逐 token 流式输出，满足赛题"流式输出"要求。
+    EventSource 不支持自定义 header，通过 query 传 token 鉴权。
+    事件：token（增量文本）/ done（结束）/ error（错误）。
+    """
+    payload = decode_token(token)
+    if not payload or not payload.get("sub"):
+        return StreamingResponse(
+            iter([f"event: error\ndata: {json.dumps({'message': 'Invalid token'})}\n\n"]),
+            media_type="text/event-stream",
+        )
+    user_id = int(payload["sub"])
+
+    def event_stream():
+        import app.db.session as db_module
+        db = db_module.SessionLocal()
+        try:
+            user = db.query(User).filter_by(id=user_id).first()
+            if not user:
+                yield f"event: error\ndata: {json.dumps({'message': 'User not found'})}\n\n"
+                return
+
+            knowledge_context, profile_dict = _build_context(db, user, knowledge_point_id)
+
+            system_content = (
+                "你是 EduPath 智能学习助手，帮助学生解答操作系统课程相关问题。\n"
+                "要求：1.根据学生水平调整解释深度 2.给出具体例子 "
+                "3.使用Markdown格式 4.简洁准确\n"
+            )
+            if profile_dict:
+                system_content += f"\n学生画像：{json.dumps(profile_dict, ensure_ascii=False)}"
+            if knowledge_context:
+                system_content += f"\n知识上下文：{json.dumps(knowledge_context, ensure_ascii=False)}"
+
+            messages = [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": question},
+            ]
+
+            llm = get_llm_client()
+            yield f"event: agent_status\ndata: {json.dumps({'agent_name': 'TutorAgent', 'status': 'running'}, ensure_ascii=False)}\n\n"
+
+            for chunk in llm.stream(messages):
+                yield f"event: token\ndata: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
+
+            yield f"event: done\ndata: {json.dumps({'status': 'completed'})}\n\n"
+        except Exception as exc:
+            yield f"event: error\ndata: {json.dumps({'message': str(exc)}, ensure_ascii=False)}\n\n"
+        finally:
+            db.close()
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")

@@ -1,3 +1,4 @@
+import json
 import logging
 import time
 from collections.abc import Iterator
@@ -80,4 +81,58 @@ class SparkLLM(LLMClient):
             raise RuntimeError(f"SparkLLM failed after {MAX_RETRIES} retries: {last_error}")
 
     def stream(self, messages: list[dict[str, str]]) -> Iterator[str]:
+        """真流式输出：用 Spark OpenAI 兼容接口的 stream=true 逐 token 返回。
+
+        失败时降级为一次性返回完整内容，保证调用方不中断。
+        """
+        try:
+            yield from self._stream_sse(messages)
+            return
+        except Exception as exc:
+            logger.warning("SparkLLM stream failed, fallback to one-shot: %s", exc)
+        # 降级：一次性返回
         yield self.chat(messages)
+
+    def _stream_sse(self, messages: list[dict[str, str]], max_tokens: int = 2048) -> Iterator[str]:
+        """通过 SSE 逐 token 流式获取回复。
+
+        Spark OpenAI 兼容接口支持 stream=true，响应为 SSE 格式：
+        每行 `data: {json}`，json.choices[0].delta.content 为增量文本，
+        结束标记 `data: [DONE]`。
+        """
+        resp = requests.post(
+            settings.spark_api_url,
+            headers={
+                "Authorization": f"Bearer {settings.spark_api_key}:{settings.spark_api_secret}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": settings.spark_model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "stream": True,
+            },
+            timeout=60,
+            stream=True,
+        )
+        resp.raise_for_status()
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            # SSE 行格式：`data: {...}` 或 `data: [DONE]`
+            if not line.startswith("data:"):
+                continue
+            data = line[5:].strip()
+            if data == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data)
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta", {})
+                content = delta.get("content") or ""
+                if content:
+                    yield content
+            except json.JSONDecodeError:
+                continue

@@ -47,7 +47,7 @@
             </div>
           </div>
 
-          <div v-if="loading" class="msg assistant">
+          <div v-if="loading && !isStreaming" class="msg assistant">
             <div class="msg-avatar">
               <svg width="14" height="14" viewBox="0 0 28 28" fill="none"><path d="M8 10L14 5.5L20 10V18L14 22.5L8 18V10Z" stroke="white" stroke-width="2" fill="none"/><circle cx="14" cy="14" r="2" fill="white"/></svg>
             </div>
@@ -79,11 +79,13 @@
 <script setup lang="ts">
 import { ref, nextTick, watch } from 'vue'
 import api from '../api/index'
+import { createSSE } from '../api/sse'
 import MarkdownRenderer from './MarkdownRenderer.vue'
 
 const open = ref(false)
 const input = ref('')
 const loading = ref(false)
+const isStreaming = ref(false)
 const messages = ref<Array<{ role: string; content: string }>>([])
 const msgContainer = ref<HTMLElement>()
 
@@ -109,15 +111,58 @@ async function send(text?: string) {
   scrollBottom()
   loading.value = true
 
+  // 预插入空 assistant 消息，用于流式追加
+  const assistantMsg: { role: string; content: string } = { role: 'assistant', content: '' }
+  messages.value.push(assistantMsg)
+  isStreaming.value = true
+
+  // 拼接历史上下文（取最近 4 轮，避免 query 过长）
+  const history = messages.value
+    .slice(-9, -2) // 排除刚插入的 user 和空的 assistant
+    .filter(m => m.content)
+  const contextPrefix = history.length
+    ? '之前的对话历史：\n' + history.map(m => `${m.role === 'user' ? '学生' : '助手'}: ${m.content.slice(0, 200)}`).join('\n') + '\n\n当前问题：'
+    : ''
+
   try {
-    const chatMessages = messages.value.map(m => ({ role: m.role, content: m.content }))
-    const res = await api.post('/tutor/chat', { messages: chatMessages })
-    messages.value.push({ role: 'assistant', content: res.data.answer })
+    const params = new URLSearchParams({ question: contextPrefix + q })
+    createSSE(
+      `/api/tutor/chat/stream?${params.toString()}`,
+      (event) => {
+        const data = event.data ? JSON.parse(event.data) : {}
+        if (event.type === 'token') {
+          assistantMsg.content += data.text || ''
+          scrollBottom()
+        } else if (event.type === 'error') {
+          assistantMsg.content = assistantMsg.content || '抱歉，回答生成失败，请稍后重试。'
+          if (!assistantMsg.content.includes('抱歉')) {
+            assistantMsg.content += '\n\n（生成中断，请重试）'
+          }
+        }
+      },
+      () => {
+        if (!assistantMsg.content) {
+          assistantMsg.content = '抱歉，回答生成失败，请稍后重试。'
+        }
+        isStreaming.value = false
+        loading.value = false
+        scrollBottom()
+      }
+    )
   } catch {
-    messages.value.push({ role: 'assistant', content: '抱歉，回答生成失败，请稍后重试。' })
-  } finally {
-    loading.value = false
-    scrollBottom()
+    // EventSource 创建失败，回退到普通接口
+    messages.value.pop()
+    isStreaming.value = false
+    try {
+      const chatMessages = messages.value.map(m => ({ role: m.role, content: m.content }))
+      const res = await api.post('/tutor/chat', { messages: chatMessages })
+      messages.value.push({ role: 'assistant', content: res.data.answer })
+    } catch {
+      messages.value.push({ role: 'assistant', content: '抱歉，回答生成失败，请稍后重试。' })
+    } finally {
+      loading.value = false
+      scrollBottom()
+    }
   }
 }
 </script>

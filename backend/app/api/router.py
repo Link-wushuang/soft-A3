@@ -10,6 +10,7 @@ from app.api.analytics import router as analytics_router
 from app.api.exercises import router as exercises_router
 from app.api.knowledge import router as knowledge_router
 from app.api.resources import router as resources_router
+from app.api.tts import router as tts_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router)
@@ -22,3 +23,4 @@ api_router.include_router(knowledge_router)
 api_router.include_router(documents_router)
 api_router.include_router(tutor_router)
 api_router.include_router(analytics_router)
+api_router.include_router(tts_router)
