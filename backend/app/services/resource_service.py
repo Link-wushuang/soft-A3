@@ -69,12 +69,21 @@ def _run_generation(task_id: int, user_id: int, knowledge_point_id: int) -> None
         update_task_progress(db, task_id, 0, "running")
 
         completed_agents: set[str] = set()
+        completed_lock = threading.Lock()
 
         def on_trace(trace_item: dict) -> None:
-            save_single_trace(db, task_id, trace_item)
-            if trace_item.get("status") == "success":
-                completed_agents.add(trace_item["agent_name"])
-                update_task_progress(db, task_id, len(completed_agents), "running")
+            # 并行执行时每个 trace 写入用独立 session，
+            # 避免多线程共享同一 SQLAlchemy Session 导致 commit 冲突
+            trace_db = db_module.SessionLocal()
+            try:
+                save_single_trace(trace_db, task_id, trace_item)
+                if trace_item.get("status") == "success":
+                    with completed_lock:
+                        completed_agents.add(trace_item["agent_name"])
+                        count = len(completed_agents)
+                    update_task_progress(trace_db, task_id, count, "running")
+            finally:
+                trace_db.close()
 
         result = orchestrator.generate_resources(
             profile=profile_dict,

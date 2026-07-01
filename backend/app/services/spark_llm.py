@@ -19,6 +19,8 @@ SCHEMA_TYPES: dict[str, dict] = {
 }
 
 MAX_RETRIES = 3
+# 重试退避：500/限流等偶发错误时快速重试，不做长退避（原 2/4/10s 过长）
+RETRY_DELAYS = [1, 2, 3]
 
 
 class SparkLLM(LLMClient):
@@ -49,7 +51,7 @@ class SparkLLM(LLMClient):
                 last_error = exc
                 logger.warning("SparkLLM attempt %d/%d failed: %s", attempt + 1, MAX_RETRIES, exc)
                 if attempt < MAX_RETRIES - 1:
-                    time.sleep(min(2 * (2 ** attempt), 10))
+                    time.sleep(RETRY_DELAYS[attempt])
 
         logger.error("SparkLLM exhausted retries, falling back to MockLLM")
         try:
@@ -71,7 +73,7 @@ class SparkLLM(LLMClient):
                 last_error = exc
                 logger.warning("SparkLLM attempt %d/%d failed: %s", attempt + 1, MAX_RETRIES, exc)
                 if attempt < MAX_RETRIES - 1:
-                    time.sleep(min(2 * (2 ** attempt), 10))
+                    time.sleep(RETRY_DELAYS[attempt])
 
         logger.error("SparkLLM exhausted retries for chat_json, falling back to MockLLM")
         try:
