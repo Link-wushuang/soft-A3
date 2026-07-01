@@ -18,6 +18,10 @@ from app.services.llm_client import LLMClient, get_llm_client
 
 logger = logging.getLogger(__name__)
 
+# Spark API 单租户最大并发数为 5，资源生成与验证阶段的线程池均不得超过此值。
+# 资源生成阶段 6 个 Agent 在 5 worker 池中运行：前 5 并行，第 6 排队等待。
+SPARK_MAX_CONCURRENCY = 5
+
 RESOURCE_AGENTS = [
     ("lecture", LectureAgent),
     ("mindmap", MindMapAgent),
@@ -50,6 +54,8 @@ class Orchestrator:
         context = knowledge_result.data if knowledge_result.success else (knowledge_context or {})
 
         # 6 个资源 Agent 并行生成（LLM 调用为 I/O 密集型，并行可显著降低总耗时）
+        # 线程池上限取 SPARK_MAX_CONCURRENCY（5），避免超出 Spark 并发限制被限流。
+        # 6 个任务在 5 worker 池中运行：前 5 并行，第 6 排队等任意一个完成后立即执行。
         def _run_one(resource_type: str, agent_cls: type) -> dict | None:
             result = self._run_agent(
                 agent_cls(self.llm), trace, on_trace,
@@ -67,7 +73,7 @@ class Orchestrator:
                 "warnings": list(result.warnings),
             }
 
-        with ThreadPoolExecutor(max_workers=len(RESOURCE_AGENTS)) as pool:
+        with ThreadPoolExecutor(max_workers=min(SPARK_MAX_CONCURRENCY, len(RESOURCE_AGENTS))) as pool:
             futures = [
                 pool.submit(_run_one, rtype, acls)
                 for rtype, acls in RESOURCE_AGENTS
@@ -87,6 +93,7 @@ class Orchestrator:
                     resources.append(results_by_type[rtype])
 
         # Verifier 与 ContentGuard 对每条资源并行校验（两类检查相互独立）
+        # 每条资源内部 Verifier→Guard 串行，所以瞬时并发 = max_workers，不超过 5。
         verifier = VerifierAgent(self.llm)
         guard = ContentGuardAgent(self.llm)
 
@@ -110,7 +117,7 @@ class Orchestrator:
                     resource["warnings"].append("safety_blocked")
                     resource["confidence"] = "low"
 
-        with ThreadPoolExecutor(max_workers=min(4, max(1, len(resources)))) as pool:
+        with ThreadPoolExecutor(max_workers=min(SPARK_MAX_CONCURRENCY, max(1, len(resources)))) as pool:
             list(pool.map(_verify_and_guard, resources))
 
         return {"resources": resources, "trace": trace}
