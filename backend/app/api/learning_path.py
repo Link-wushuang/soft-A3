@@ -35,6 +35,37 @@ def current(course_id: int = Query(...), user: User = Depends(get_current_user),
     return _path_to_response(db, path)
 
 
+@router.get("/history")
+def path_history(course_id: int = Query(...), user: User = Depends(get_current_user),
+                 db: Session = Depends(get_db)):
+    """返回该用户+课程的所有学习路径历史（含已替换的旧路径），用于展示重规划历史。"""
+    paths = db.query(LearningPath).filter_by(
+        user_id=user.id, course_id=course_id
+    ).order_by(LearningPath.created_at.desc()).limit(20).all()
+
+    history = []
+    for p in paths:
+        nodes = db.query(LearningPathNode).filter_by(path_id=p.id).order_by(
+            LearningPathNode.sort_order
+        ).all()
+        node_summaries = []
+        for node in nodes:
+            kp = db.query(KnowledgePoint).filter_by(id=node.knowledge_point_id).first()
+            node_summaries.append({
+                "knowledge_point_title": kp.title if kp else "Unknown",
+                "status": node.status,
+                "reason": node.reason,
+            })
+        history.append({
+            "id": p.id,
+            "status": p.status,
+            "created_at": str(p.created_at) if p.created_at else None,
+            "node_count": len(nodes),
+            "nodes": node_summaries,
+        })
+    return {"history": history}
+
+
 @router.put("/nodes/{node_id}/status")
 def update_node_status(node_id: int, req: UpdateNodeStatusRequest,
                        user: User = Depends(get_current_user),

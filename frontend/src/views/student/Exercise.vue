@@ -36,6 +36,16 @@
             <div class="eval-stat-label">正确率</div>
           </div>
         </div>
+        <div v-if="pathReplanned" class="replan-alert">
+          <div class="replan-icon-wrap">
+            <el-icon :size="18" style="color:#6366f1"><Refresh /></el-icon>
+          </div>
+          <div class="replan-content">
+            <div class="replan-title">学习路径已自动重规划</div>
+            <div class="replan-desc">系统检测到你的画像薄弱点发生变化，ReflectionAgent 已触发 PathPlannerAgent 重新生成个性化学习路径。</div>
+            <el-button size="small" type="primary" text @click="$router.push('/student/learning-path')">查看新路径 →</el-button>
+          </div>
+        </div>
         <div v-if="profileUpdates.length" class="profile-updates-list">
           <div class="profile-updates-header">
             <el-icon style="color:var(--ep-primary)"><Refresh /></el-icon>
@@ -86,6 +96,7 @@ const exercises = ref<any[]>([])
 const loading = ref(true)
 const results = reactive<Record<number, any>>({})
 const profileUpdates = ref<string[]>([])
+const pathReplanned = ref(false)
 
 const evalSummary = computed(() => {
   const answered = Object.values(results)
@@ -115,6 +126,14 @@ async function submitAnswer(exerciseId: number, answer: string) {
     results[exerciseId] = res.data
     if (res.data.profile_updated && res.data.reflection?.change_reason) {
       profileUpdates.value.push(res.data.reflection.change_reason)
+    }
+    if (res.data.path_replanned) {
+      pathReplanned.value = true
+      ElMessage({
+        message: '检测到薄弱点变化，已自动为你重新规划学习路径',
+        type: 'success',
+        duration: 5000,
+      })
     }
   } catch {
     ElMessage.error('提交失败')
@@ -192,4 +211,29 @@ async function submitAnswer(exerciseId: number, answer: string) {
   color: var(--ep-primary);
   margin-bottom: 6px;
 }
+
+.replan-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #eef2ff, #f5f3ff);
+  border: 1px solid #c7d2fe;
+  border-radius: var(--ep-radius-md);
+}
+.replan-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.replan-icon-wrap .el-icon { color: white; }
+.replan-content { flex: 1; }
+.replan-title { font-size: 14px; font-weight: 600; color: var(--ep-text-primary); margin-bottom: 4px; }
+.replan-desc { font-size: 12px; color: var(--ep-text-secondary); line-height: 1.6; margin-bottom: 8px; }
 </style>

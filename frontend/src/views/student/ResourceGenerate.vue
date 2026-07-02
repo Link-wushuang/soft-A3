@@ -130,6 +130,7 @@ onBeforeUnmount(() => {
 
 async function startGeneration() {
   generating.value = true
+  requestNotifyPermission()
   try {
     const res = await api.post('/resources/generate', { knowledge_point_id: kpId })
     taskId.value = res.data.task_id
@@ -169,6 +170,8 @@ function pollSSE(tid: number) {
         if (!activeTab.value) activeTab.value = String(resources.value[0].id)
       }
     }).catch(() => {})
+    // 浏览器桌面通知：用户切到别的 tab 时也能收到完成提醒
+    notifyGenerationComplete()
   })
   source.addEventListener('error', () => {
     source.close()
@@ -177,6 +180,61 @@ function pollSSE(tid: number) {
     // onMounted 重新进入时会通过 active-task 判断是否还在运行
     // 只有明确收到 done 才算真正结束
   })
+}
+
+/** 浏览器桌面通知：资源生成完成时推送，即使用户切到别的 tab 也能收到。 */
+function notifyGenerationComplete() {
+  const resourceCount = resources.value.length
+  const title = '学习资源生成完成'
+  const body = `${resourceCount} 类个性化资源已就绪，点击查看`
+
+  // 优先用 Notification API
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      const n = new Notification(title, {
+        body,
+        icon: '/favicon.ico',
+        tag: 'edupath-gen-complete',
+      })
+      n.onclick = () => {
+        window.focus()
+        n.close()
+      }
+      return
+    } catch { /* fall through */ }
+  }
+
+  // 降级：页面内 ElMessage + 标题闪烁
+  ElMessage.success(body)
+  // 标题闪烁提醒（用户在别的 tab 时能看到 tab 标题变化）
+  let isOrigTitle = true
+  const origTitle = document.title
+  const flashTimer = setInterval(() => {
+    document.title = isOrigTitle ? `✅ ${title}` : origTitle
+    isOrigTitle = !isOrigTitle
+  }, 800)
+  // 用户回到页面时停止闪烁
+  const stopFlash = () => {
+    if (!document.hidden) {
+      clearInterval(flashTimer)
+      document.title = origTitle
+      document.removeEventListener('visibilitychange', stopFlash)
+    }
+  }
+  document.addEventListener('visibilitychange', stopFlash)
+  // 10 秒后自动停止
+  setTimeout(() => {
+    clearInterval(flashTimer)
+    document.title = origTitle
+    document.removeEventListener('visibilitychange', stopFlash)
+  }, 10000)
+}
+
+/** 在开始生成时请求通知权限（需用户交互触发）。 */
+function requestNotifyPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission()
+  }
 }
 </script>
 
